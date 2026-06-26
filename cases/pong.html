@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>乒乓游戏-进阶版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a1a;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:Arial,sans-serif;overflow:hidden}
+#gameContainer{position:relative}
+canvas{background:#111;border:2px solid #333;border-radius:8px;display:block}
+#ui{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;padding:0 20px;color:#fff;font-size:18px;pointer-events:none}
+#scoreFlash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:80px;font-weight:bold;color:#fff;text-shadow:0 0 20px #0ff;opacity:0;pointer-events:none;transition:opacity 0.3s}
+#menu{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;justify-content:center;align-items:center;color:#fff;z-index:20}
+#menu h1{font-size:36px;margin-bottom:30px;text-shadow:0 0 10px #0ff}
+.menu-btn{background:#1a5;border:2px solid #0ff;border-radius:8px;color:#fff;padding:12px 30px;font-size:18px;margin:8px;cursor:pointer;transition:all 0.3s}
+.menu-btn:hover{background:#0ff;color:#000}
+.menu-btn.selected{background:#0ff;color:#000}
+.setting-row{display:flex;align-items:center;margin:10px 0}
+.setting-row label{width:100px;text-align:right;margin-right:10px}
+select{background:#222;border:1px solid #0ff;color:#fff;padding:8px;border-radius:4px}
+#skillIndicator{position:absolute;bottom:10px;left:10px;color:#fff;font-size:14px;pointer-events:none}
+#backBtn{position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.1);border:1px solid #666;border-radius:6px;color:#aaa;padding:6px 14px;font-size:14px;cursor:pointer;z-index:10;display:none}
+#backBtn:hover{background:rgba(255,255,255,0.2);color:#fff}
+#victory{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);display:none;flex-direction:column;justify-content:center;align-items:center;color:#fff;z-index:20}
+#victory h2{font-size:42px;margin-bottom:10px;text-shadow:0 0 20px #0ff}
+#victory .final-score{font-size:28px;margin:10px 0;opacity:0.9}
+#victory .detail{font-size:16px;opacity:0.6;margin:5px 0}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+<canvas id="game" width="800" height="500"></canvas>
+<div id="ui">
+<span id="leftScore">0</span>
+<span id="timer">0:00</span>
+<span id="rightScore">0</span>
+</div>
+<div id="scoreFlash"></div>
+<div id="skillIndicator"></div>
+<button id="backBtn">ESC 返回</button>
+<div id="menu">
+<h1>乒乓游戏-进阶版</h1>
+<div class="setting-row">
+<label>模式:</label>
+<button class="menu-btn selected" data-mode="single">单人vs AI</button>
+<button class="menu-btn" data-mode="double">双人对战</button>
+</div>
+<div class="setting-row" id="diffRow">
+<label>AI难度:</label>
+<select id="aiDifficulty">
+<option value="easy">简单</option>
+<option value="medium" selected>中等</option>
+<option value="hard">困难</option>
+</select>
+</div>
+<div class="setting-row">
+<label>胜利局数:</label>
+<select id="winScore">
+<option value="7">7局</option>
+<option value="11" selected>11局</option>
+<option value="21">21局</option>
+</select>
+</div>
+<button class="menu-btn" id="startBtn">开始游戏</button>
+</div>
+<div id="victory">
+<h2 id="victoryTitle">游戏结束</h2>
+<div class="final-score" id="finalScore"></div>
+<div class="detail" id="victoryDetail"></div>
+<button class="menu-btn" id="replayBtn">再来一局</button>
+<button class="menu-btn" id="menuBtn">返回菜单</button>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+
+let gameState='menu';
+let mode='single';
+let aiDifficulty='medium';
+let winScore=11;
+let leftScore=0,rightScore=0;
+let gameTime=0;
+let particles=[];
+let skillBalls=[];
+let activeSkills=[];
+let lastSkillTime=0;
+let rallyCount=0;
+
+const AI_SPEEDS={easy:3.5,medium:5.5,hard:8};
+const AI_REACT={easy:0.6,medium:0.8,hard:0.95};
+const SKILL_SPAWN_INTERVAL=12;
+const SKILL_LIVE_SECONDS=10;
+const WIN_SCORE_DEFAULT=11;
+
+class Paddle{
+constructor(x,isAI){
+this.x=x;
+this.y=H/2-40;
+this.w=12;
+this.h=80;
+this.baseH=80;
+this.speed=7;
+this.isAI=isAI;
+this.targetY=H/2;
+this.aiUpdateTimer=0;
+this.color=isAI?'#f80':'#0ff';
+this.score=0;
+}
+draw(){
+ctx.fillStyle=this.color;
+ctx.shadowBlur=12;
+ctx.shadowColor=this.color;
+ctx.fillRect(this.x,this.y,this.w,this.h);
+ctx.shadowBlur=0;
+}
+update(balls,dt){
+if(this.isAI&&mode==='single'){
+this.updateAI(balls,dt);
+}else{
+if(this.isAI?(keys['ArrowUp']||keys['ArrowUp']):keys['w']||keys['W']){
+this.y-=this.speed;
+}
+if(this.isAI?(keys['ArrowDown']||keys['ArrowDown']):keys['s']||keys['S']){
+this.y+=this.speed;
+}
+}
+this.y=Math.max(0,Math.min(H-this.h,this.y));
+}
+updateAI(balls,dt){
+this.aiUpdateTimer+=dt;
+let reactInterval=aiDifficulty==='easy'?0.1:aiDifficulty==='medium'?0.05:0.02;
+if(this.aiUpdateTimer<reactInterval)return;
+this.aiUpdateTimer=0;
+let nearestBall=null;
+let nearestDist=Infinity;
+for(let b of balls){
+let dx=b.vx>0?(this.x-b.x):(b.x-this.x);
+if(b.vx>0&&this.x>W/2){
+let d=Math.abs(b.x-this.x);
+if(d<nearestDist){nearestDist=d;nearestBall=b;}
+}else if(b.vx<0&&this.x<W/2){
+let d=Math.abs(this.x-b.x);
+if(d<nearestDist){nearestDist=d;nearestBall=b;}
+}else{
+let d=Math.abs(b.x-this.x);
+if(d<nearestDist){nearestDist=d;nearestBall=b;}
+}
+}
+if(!nearestBall&&balls.length>0)nearestBall=balls[0];
+if(nearestBall){
+let reactFactor=AI_REACT[aiDifficulty];
+let rawTarget=nearestBall.y;
+if(aiDifficulty==='easy'){
+rawTarget+=Math.sin(Date.now()/400)*50;
+}else if(aiDifficulty==='medium'){
+rawTarget+=Math.sin(Date.now()/600)*25;
+}
+this.targetY=this.targetY+(rawTarget-this.targetY)*reactFactor;
+}
+let paddleCenter=this.y+this.h/2;
+let diff=this.targetY-paddleCenter;
+let spd=AI_SPEEDS[aiDifficulty];
+if(Math.abs(diff)>spd){
+this.y+=diff>0?spd:-spd;
+}else{
+this.y+=diff;
+}
+}
+resetSize(){
+this.h=this.baseH;
+}
+}
+
+class Ball{
+constructor(){
+this.reset();
+}
+reset(){
+this.x=W/2;
+this.y=H/2;
+this.r=8;
+this.baseSpeed=5;
+this.speed=this.baseSpeed;
+this.vx=this.speed*(Math.random()>0.5?1:-1);
+this.vy=this.speed*(Math.random()-0.5)*0.8;
+this.trail=[];
+}
+draw(){
+for(let i=0;i<this.trail.length;i++){
+let t=this.trail[i];
+let alpha=(i/this.trail.length)*0.3;
+ctx.beginPath();
+ctx.arc(t.x,t.y,this.r*0.6,0,Math.PI*2);
+ctx.fillStyle=`rgba(255,255,255,${alpha})`;
+ctx.fill();
+}
+ctx.beginPath();
+ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+ctx.fillStyle='#fff';
+ctx.shadowBlur=15;
+ctx.shadowColor='#fff';
+ctx.fill();
+ctx.shadowBlur=0;
+}
+update(dt){
+this.trail.push({x:this.x,y:this.y});
+if(this.trail.length>8)this.trail.shift();
+this.x+=this.vx;
+this.y+=this.vy;
+if(this.y-this.r<0){this.y=this.r;this.vy=Math.abs(this.vy);}
+if(this.y+this.r>H){this.y=H-this.r;this.vy=-Math.abs(this.vy);}
+}
+checkPaddle(paddle){
+let px=paddle.x;
+let pw=paddle.w;
+if(paddle.x<W/2){
+if(this.x-this.r<px+pw&&this.x+this.r>px&&this.y+this.r>paddle.y&&this.y-this.r<paddle.y+paddle.h){
+let hitPos=(this.y-(paddle.y+paddle.h/2))/(paddle.h/2);
+let angle=hitPos*Math.PI/3.5;
+let speed=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+this.vx=Math.abs(speed*Math.cos(angle));
+this.vy=speed*Math.sin(angle);
+this.x=px+pw+this.r;
+this.onHit();
+return true;
+}
+}else{
+if(this.x+this.r>px&&this.x-this.r<px+pw&&this.y+this.r>paddle.y&&this.y-this.r<paddle.y+paddle.h){
+let hitPos=(this.y-(paddle.y+paddle.h/2))/(paddle.h/2);
+let angle=hitPos*Math.PI/3.5;
+let speed=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+this.vx=-Math.abs(speed*Math.cos(angle));
+this.vy=speed*Math.sin(angle);
+this.x=px-this.r;
+this.onHit();
+return true;
+}
+}
+return false;
+}
+onHit(){
+createParticles(this.x,this.y,5);
+rallyCount++;
+if(rallyCount%5===0&&this.speed<this.baseSpeed*2){
+this.speed*=1.08;
+let cs=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+let ratio=this.speed/cs;
+this.vx*=ratio;
+this.vy*=ratio;
+}
+}
+checkScore(){
+if(this.x<-this.r){
+return 'right';
+}
+if(this.x>W+this.r){
+return 'left';
+}
+return null;
+}
+}
+
+const SKILL_TYPES=[
+{id:'speed',name:'加速球',color:'#f44',icon:'\u26A1',duration:300},
+{id:'length',name:'长板',color:'#4f4',icon:'\u2B06',duration:480},
+{id:'shrink',name:'缩小对手',color:'#f4f',icon:'\u2B07',duration:360},
+{id:'slow',name:'减速球',color:'#4ff',icon:'\u2744',duration:300}
+];
+
+class SkillBall{
+constructor(){
+this.r=16;
+this.x=Math.random()*(W-200)+100;
+this.y=Math.random()*(H-80)+40;
+let typeInfo=SKILL_TYPES[Math.floor(Math.random()*SKILL_TYPES.length)];
+this.type=typeInfo.id;
+this.typeName=typeInfo.name;
+this.typeColor=typeInfo.color;
+this.typeIcon=typeInfo.icon;
+this.typeDuration=typeInfo.duration;
+this.age=0;
+this.maxAge=SKILL_LIVE_SECONDS*60;
+this.pulse=0;
+}
+draw(){
+this.pulse+=0.08;
+let scale=1+Math.sin(this.pulse)*0.15;
+let fadeRatio=this.age>this.maxAge*0.75?1-(this.age-this.maxAge*0.75)/(this.maxAge*0.25):1;
+ctx.save();
+ctx.globalAlpha=fadeRatio;
+ctx.beginPath();
+ctx.arc(this.x,this.y,this.r*scale+4,0,Math.PI*2);
+ctx.fillStyle=this.typeColor;
+ctx.shadowBlur=25;
+ctx.shadowColor=this.typeColor;
+ctx.globalAlpha=fadeRatio*0.3;
+ctx.fill();
+ctx.globalAlpha=fadeRatio;
+ctx.beginPath();
+ctx.arc(this.x,this.y,this.r*scale,0,Math.PI*2);
+ctx.fillStyle=this.typeColor;
+ctx.shadowBlur=15;
+ctx.fill();
+ctx.shadowBlur=0;
+ctx.fillStyle='#fff';
+ctx.font='bold 14px Arial';
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+ctx.fillText(this.typeIcon,this.x,this.y);
+ctx.restore();
+}
+update(){
+this.age++;
+}
+isExpired(){
+return this.age>=this.maxAge;
+}
+checkCollision(ball){
+let dx=this.x-ball.x;
+let dy=this.y-ball.y;
+return Math.sqrt(dx*dx+dy*dy)<this.r+ball.r;
+}
+}
+
+class Particle{
+constructor(x,y){
+this.x=x;
+this.y=y;
+this.r=Math.random()*3+1;
+this.vx=(Math.random()-0.5)*6;
+this.vy=(Math.random()-0.5)*6;
+this.alpha=1;
+this.decay=Math.random()*0.03+0.02;
+this.color='#fff';
+}
+draw(){
+ctx.beginPath();
+ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+ctx.fillStyle=this.color.replace('1)',this.alpha+')').replace('#fff',`rgba(255,255,255,${this.alpha})`);
+ctx.fill();
+}
+update(){
+this.x+=this.vx;
+this.y+=this.vy;
+this.vx*=0.95;
+this.vy*=0.95;
+this.alpha-=this.decay;
+this.r*=0.97;
+}
+isDead(){return this.alpha<=0;}
+}
+
+let leftPaddle,rightPaddle,balls=[];
+let keys={};
+document.addEventListener('keydown',e=>{
+keys[e.key]=true;
+if(e.key==='Escape'&&gameState==='playing'){
+returnToMenu();
+}
+if(['ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+
+function createParticles(x,y,count){
+count=count||5;
+for(let i=0;i<count;i++){
+particles.push(new Particle(x,y));
+}
+}
+
+function showScoreFlash(score,side){
+let flash=document.getElementById('scoreFlash');
+flash.textContent=score;
+flash.style.opacity=1;
+flash.style.color=side==='left'?'#0ff':'#f80';
+setTimeout(()=>{flash.style.opacity=0;},1200);
+}
+
+function showSkillIndicator(text){
+let el=document.getElementById('skillIndicator');
+el.textContent=text;
+setTimeout(()=>{el.textContent='';},2500);
+}
+
+function init(){
+leftPaddle=new Paddle(30,false);
+rightPaddle=new Paddle(W-42,mode==='single');
+balls=[new Ball()];
+particles=[];
+skillBalls=[];
+activeSkills=[];
+leftScore=0;
+rightScore=0;
+gameTime=0;
+lastSkillTime=0;
+rallyCount=0;
+updateUI();
+}
+
+function updateUI(){
+document.getElementById('leftScore').textContent=leftScore;
+document.getElementById('rightScore').textContent=rightScore;
+let mins=Math.floor(gameTime/60);
+let secs=Math.floor(gameTime%60);
+document.getElementById('timer').textContent=mins+':'+String(secs).padStart(2,'0');
+}
+
+function applySkill(type,activator){
+let duration=300;
+let desc='';
+switch(type){
+case'speed':
+desc='\u26A1 加速球 5秒';
+for(let b of balls){
+let cs=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+let ratio=Math.min(b.speed*1.8/cs,2);
+b.vx*=ratio;
+b.vy*=ratio;
+}
+duration=300;
+break;
+case'length':
+desc='\u2B06 长板 8秒';
+leftPaddle.h=leftPaddle.baseH*1.6;
+rightPaddle.h=rightPaddle.baseH*1.6;
+duration=480;
+break;
+case'shrink':
+desc='\u2B07 缩小对手 6秒';
+if(activator==='left'){
+rightPaddle.h=rightPaddle.baseH*0.5;
+}else{
+leftPaddle.h=leftPaddle.baseH*0.5;
+}
+duration=360;
+break;
+case'slow':
+desc='\u2744 减速球 5秒';
+for(let b of balls){
+let cs=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+if(cs>b.baseSpeed){
+let ratio=b.baseSpeed*0.6/cs;
+b.vx*=ratio;
+b.vy*=ratio;
+}
+}
+duration=300;
+break;
+}
+activeSkills.push({type,timer:0,duration,activator});
+showSkillIndicator(desc);
+}
+
+function expireSkill(skill){
+switch(skill.type){
+case'length':
+leftPaddle.resetSize();
+rightPaddle.resetSize();
+break;
+case'shrink':
+leftPaddle.resetSize();
+rightPaddle.resetSize();
+break;
+}
+}
+
+function drawBackground(){
+ctx.fillStyle='#111';
+ctx.fillRect(0,0,W,H);
+ctx.strokeStyle='#222';
+ctx.setLineDash([10,10]);
+ctx.beginPath();
+ctx.moveTo(W/2,0);
+ctx.lineTo(W/2,H);
+ctx.stroke();
+ctx.setLineDash([]);
+ctx.fillStyle='#fff';
+ctx.font='bold 60px Arial';
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+ctx.globalAlpha=0.06;
+ctx.fillText(winScore+'',W/2,H/2);
+ctx.globalAlpha=1;
+}
+
+function checkVictory(){
+if(leftScore>=winScore){
+endGame('left');
+return true;
+}
+if(rightScore>=winScore){
+endGame('right');
+return true;
+}
+return false;
+}
+
+function endGame(winner){
+gameState='ended';
+let victoryEl=document.getElementById('victory');
+let titleEl=document.getElementById('victoryTitle');
+let scoreEl=document.getElementById('finalScore');
+let detailEl=document.getElementById('victoryDetail');
+let winnerName;
+if(winner==='left'){
+winnerName=mode==='single'?'玩家':'玩家1';
+titleEl.style.color='#0ff';
+}else{
+winnerName=mode==='single'?'AI':'玩家2';
+titleEl.style.color='#f80';
+}
+titleEl.textContent=winnerName+' \u83B7\u80DC!';
+scoreEl.textContent=leftScore+' : '+rightScore;
+let mins=Math.floor(gameTime/60);
+let secs=Math.floor(gameTime%60);
+detailEl.textContent='\u7528\u65F6 '+mins+':'+String(secs).padStart(2,'0');
+victoryEl.style.display='flex';
+document.getElementById('backBtn').style.display='none';
+}
+
+function returnToMenu(){
+gameState='menu';
+document.getElementById('menu').style.display='flex';
+document.getElementById('backBtn').style.display='none';
+document.getElementById('victory').style.display='none';
+}
+
+function update(dt){
+if(gameState!=='playing')return;
+gameTime+=dt;
+
+if(gameTime-lastSkillTime>SKILL_SPAWN_INTERVAL&&skillBalls.length<2){
+skillBalls.push(new SkillBall());
+lastSkillTime=gameTime;
+}
+
+activeSkills=activeSkills.filter(sk=>{
+sk.timer++;
+if(sk.timer>=sk.duration){
+expireSkill(sk);
+return false;
+}
+return true;
+});
+
+leftPaddle.update(balls,dt);
+rightPaddle.update(balls,dt);
+
+for(let i=balls.length-1;i>=0;i--){
+let b=balls[i];
+b.update(dt);
+b.checkPaddle(leftPaddle);
+b.checkPaddle(rightPaddle);
+let scorer=b.checkScore();
+if(scorer){
+if(scorer==='left'){
+leftScore++;
+showScoreFlash(leftScore,'left');
+}else{
+rightScore++;
+showScoreFlash(rightScore,'right');
+}
+rallyCount=0;
+balls.splice(i,1);
+if(checkVictory())return;
+}
+}
+
+if(balls.length===0){
+balls.push(new Ball());
+}
+
+for(let i=skillBalls.length-1;i>=0;i--){
+let sb=skillBalls[i];
+sb.update();
+if(sb.isExpired()){
+skillBalls.splice(i,1);
+continue;
+}
+for(let b of balls){
+if(sb.checkCollision(b)){
+let activator=b.vx>0?'left':'right';
+applySkill(sb.type,activator);
+createParticles(sb.x,sb.y,10);
+skillBalls.splice(i,1);
+break;
+}
+}
+}
+
+particles=particles.filter(p=>{p.update();return !p.isDead();});
+updateUI();
+}
+
+function draw(){
+drawBackground();
+leftPaddle.draw();
+rightPaddle.draw();
+balls.forEach(b=>b.draw());
+skillBalls.forEach(sb=>sb.draw());
+particles.forEach(p=>p.draw());
+
+if(gameState==='playing'&&activeSkills.length>0){
+ctx.fillStyle='#fff';
+ctx.font='12px Arial';
+ctx.textAlign='left';
+let y=H-10;
+for(let sk of activeSkills){
+let remaining=Math.ceil((sk.duration-sk.timer)/60);
+let name='';
+switch(sk.type){
+case'speed':name='\u26A1\u52A0\u901F';break;
+case'length':name='\u2B06\u957F\u677F';break;
+case'shrink':name='\u2B07\u7F29\u5C0F';break;
+case'slow':name='\u2744\u51CF\u901F';break;
+}
+ctx.fillText(name+' '+remaining+'s',10,y);
+y-=16;
+}
+}
+}
+
+let lastTime=0;
+function gameLoop(timestamp){
+if(!lastTime)lastTime=timestamp;
+let dt=(timestamp-lastTime)/1000;
+lastTime=timestamp;
+if(dt>0.1)dt=0.016;
+if(gameState==='playing'){
+update(dt);
+}
+if(gameState==='playing'||gameState==='ended'){
+draw();
+}
+requestAnimationFrame(gameLoop);
+}
+
+document.querySelectorAll('[data-mode]').forEach(btn=>{
+btn.addEventListener('click',()=>{
+document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('selected'));
+btn.classList.add('selected');
+mode=btn.dataset.mode;
+document.getElementById('diffRow').style.display=mode==='single'?'flex':'none';
+});
+});
+
+document.getElementById('aiDifficulty').addEventListener('change',e=>{
+aiDifficulty=e.target.value;
+});
+
+document.getElementById('winScore').addEventListener('change',e=>{
+winScore=parseInt(e.target.value);
+});
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+document.getElementById('menu').style.display='none';
+document.getElementById('backBtn').style.display='block';
+winScore=parseInt(document.getElementById('winScore').value);
+aiDifficulty=document.getElementById('aiDifficulty').value;
+gameState='playing';
+init();
+});
+
+document.getElementById('replayBtn').addEventListener('click',()=>{
+document.getElementById('victory').style.display='none';
+document.getElementById('backBtn').style.display='block';
+gameState='playing';
+init();
+});
+
+document.getElementById('menuBtn').addEventListener('click',()=>{
+returnToMenu();
+});
+
+document.getElementById('backBtn').addEventListener('click',()=>{
+returnToMenu();
+});
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

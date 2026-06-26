@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Coding — 说话代替写代码</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --p:#6366f1;--p-l:#818cf8;--p-d:#4f46e5;--a:#f59e0b;--g:#10b981;--r:#ef4444;
+  --bg:#f8fafc;--card:#fff;--t:#1e293b;--ts:#64748b;--bd:#e2e8f0;
+  --grad:linear-gradient(135deg,#6366f1,#8b5cf6,#a78bfa);
+  --hero-bg:linear-gradient(160deg,#eef2ff 0%,#f0fdf4 50%,#fef3c7 100%);
+  --shadow:0 4px 24px rgba(99,102,241,.08);
+  --shadow-lg:0 12px 48px rgba(99,102,241,.12);
+}
+body{font-family:'Inter',-apple-system,sans-serif;color:var(--t);line-height:1.7;overflow-x:hidden;background:#fff}
+
+/* ============ LANDING ============ */
+#landing{position:fixed;inset:0;background:#fff;z-index:100;transition:background-color .8s ease,opacity .35s 0s,visibility .35s 0s}
+#landing.out{opacity:0;visibility:hidden;background-color:transparent}
+#landing.clear-bg{background-color:transparent}
+
+/* Background reveal: same gradient as hero, clipped to circle */
+#bgReveal{position:fixed;inset:0;background:var(--hero-bg);clip-path:circle(150px at 50% 50%);transition:clip-path 1.1s cubic-bezier(.4,0,.15,1);z-index:1}
+#bgReveal.expand{clip-path:circle(150vmax at 50% 50%)}
+
+/* Soft decorative orbs inside the circle area */
+.bg-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.3;pointer-events:none}
+.bg-orb:nth-child(1){width:300px;height:300px;background:#818cf8;top:30%;right:20%;animation:drift 12s ease-in-out infinite}
+.bg-orb:nth-child(2){width:220px;height:220px;background:#34d399;bottom:25%;left:15%;animation:drift 12s ease-in-out -5s infinite}
+@keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(25px,-18px) scale(1.04)}66%{transform:translate(-18px,12px) scale(.96)}}
+
+/* Text layer on top of circle — vertical, same font as hero */
+#orbTextWrap{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.orb-line{font-size:clamp(28px,5vw,48px);font-weight:900;letter-spacing:-1px;line-height:1.15;transition:transform 1s cubic-bezier(.4,0,.15,1)}
+.orb-line.hl{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.orb-line.dark{color:var(--t)}
+.orb-line.mid{color:var(--ts);font-weight:700;font-size:clamp(18px,3.2vw,28px);transition:transform 1s cubic-bezier(.4,0,.15,1),opacity .5s ease}
+.orb-hint{color:var(--ts);font-size:11px;font-weight:500;margin-top:16px;letter-spacing:2px;text-transform:uppercase;opacity:.6;transition:opacity .3s}
+#orbTextWrap.moving .orb-line.mid,#orbTextWrap.moving .orb-hint{opacity:0}
+#orbTextWrap.hidden{opacity:0;transition:opacity 0s}
+
+/* Ripple rings — gradient echo using same bg as main circle */
+.ring-layer{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.ring{position:absolute;border-radius:50%;top:50%;left:50%;background:var(--hero-bg);-webkit-mask-image:radial-gradient(circle,transparent 84%,rgba(0,0,0,.55) 88%,rgba(0,0,0,.55) 95%,transparent 100%);mask-image:radial-gradient(circle,transparent 84%,rgba(0,0,0,.55) 88%,rgba(0,0,0,.55) 95%,transparent 100%)}
+.ring-1{width:320px;height:320px;margin:-160px 0 0 -160px;animation:ringPulse 3.8s ease-out infinite}
+.ring-2{width:400px;height:400px;margin:-200px 0 0 -200px;animation:ringPulse 3.8s ease-out 1s infinite}
+.ring-3{width:490px;height:490px;margin:-245px 0 0 -245px;animation:ringPulse 3.8s ease-out 2s infinite}
+.ring-4{width:590px;height:590px;margin:-295px 0 0 -295px;animation:ringPulse 3.8s ease-out 3s infinite}
+@keyframes ringPulse{0%{opacity:.5;transform:scale(.9)}50%{opacity:.1}100%{opacity:0;transform:scale(1.18)}}
+.ring-layer.out .ring{animation:none;opacity:0;transition:opacity .3s}
+
+/* Click hint */
+.click-hint{position:fixed;bottom:calc(50% - 180px);left:50%;transform:translateX(-50%);z-index:3;color:var(--ts);font-size:13px;font-weight:500;letter-spacing:1px;animation:hintBlink 2.5s ease-in-out infinite;transition:opacity .3s}
+.click-hint.out{opacity:0}
+@keyframes hintBlink{0%,100%{opacity:.5}50%{opacity:.15}}
+
+/* Click area (invisible, covers circle area) */
+#orbClick{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:260px;height:260px;border-radius:50%;cursor:pointer;z-index:10;transition:transform .3s}
+#orbClick:hover{transform:translate(-50%,-50%) scale(1.06)}
+#orbClick:active{transform:translate(-50%,-50%) scale(.96)}
+
+/* ============ MAIN APP (behind landing) ============ */
+#app{opacity:0;min-height:100vh;position:relative;z-index:0;transition:opacity 0s}
+#app.show{opacity:1}
+.hero-add{opacity:0;transition:opacity .5s .1s}
+.hero-add.show{opacity:1}
+.hero-badge,.hero-case-btn,.hero-c>p,.hero-stats,.menu-grid{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.hero-badge.show,.hero-case-btn.show{opacity:1;transform:none;transition-delay:.05s}
+.hero-c>p.show{opacity:1;transform:none;transition-delay:.15s}
+.hero-stats.show{opacity:1;transform:none;transition-delay:.25s}
+.menu-grid.show{opacity:1;transform:none;transition-delay:.4s}
+
+/* HERO */
+.hero-main{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:var(--hero-bg)}
+.hero-orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.3;animation:drift 12s ease-in-out infinite}
+.hero-orb:nth-child(1){width:500px;height:500px;background:#818cf8;top:-10%;right:-8%}
+.hero-orb:nth-child(2){width:350px;height:350px;background:#34d399;bottom:-8%;left:-5%;animation-delay:-5s}
+.hero-orb:nth-child(3){width:300px;height:300px;background:#fbbf24;top:50%;left:40%;animation-delay:-8s}
+
+.hero-c{position:relative;z-index:2;text-align:center;padding:72px 24px 0;max-width:700px}
+.hero-top-bar{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-bottom:28px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(99,102,241,.1);color:var(--p);padding:8px 20px;border-radius:100px;font-size:13px;font-weight:700;border:1px solid rgba(99,102,241,.2)}
+.hero-case-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,.1);color:var(--a);padding:8px 18px;border-radius:100px;font-size:13px;font-weight:700;border:1px solid rgba(245,158,11,.25);text-decoration:none;transition:.3s;cursor:pointer}
+.hero-case-btn:hover{background:rgba(245,158,11,.18);border-color:rgba(245,158,11,.4);transform:translateY(-2px);box-shadow:0 4px 16px rgba(245,158,11,.12)}
+.hero-badge span{animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero-c h1{font-size:clamp(28px,5vw,48px);font-weight:900;line-height:1.15;margin-bottom:16px;letter-spacing:-1px}
+.hero-c h1 .hl{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-c>p{font-size:16px;color:var(--ts);max-width:500px;margin:0 auto 28px}
+.hero-stats{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.hero-num{text-align:center}
+.hero-num .v{font-size:28px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-num .l{font-size:12px;color:var(--ts);margin-top:2px}
+
+/* Menu grid */
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:540px;margin:0 auto}
+.menu-item{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border:1px solid var(--bd);border-radius:16px;padding:24px 16px;cursor:pointer;text-align:center;transition:.3s;position:relative;overflow:hidden}
+.menu-item::before{content:'';position:absolute;inset:0;background:var(--grad);opacity:0;transition:opacity .3s}
+.menu-item:hover::before{opacity:.05}
+.menu-item:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:rgba(99,102,241,.3)}
+.menu-item:active{transform:translateY(0) scale(.97)}
+.menu-item .mi-ico{font-size:32px;margin-bottom:10px;display:block;position:relative;z-index:1}
+.menu-item .mi-title{display:block;font-size:15px;font-weight:800;position:relative;z-index:1;margin-bottom:6px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.menu-item .mi-desc{display:block;font-size:12px;color:var(--ts);position:relative;z-index:1;line-height:1.6}
+
+/* ============ DETAIL VIEW ============ */
+#detail{position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;transform:translateX(100%);transition:transform .4s cubic-bezier(.4,0,.2,1);-webkit-overflow-scrolling:touch}
+#detail.open{transform:translateX(0)}
+
+.detail-top{position:sticky;top:0;z-index:10;background:rgba(248,250,252,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:0 120px 0 24px}
+.detail-bar{max-width:720px;margin:0 auto;display:flex;align-items:center;height:56px;gap:14px}
+.back-btn{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--p);font-size:14px;font-weight:600;padding:6px 14px;border-radius:8px;border:none;background:rgba(99,102,241,.08);transition:.2s}
+.back-btn:hover{background:rgba(99,102,241,.15)}
+.detail-title{font-size:16px;font-weight:800;flex:1}
+
+.detail-body{max-width:720px;margin:0 auto;padding:28px 24px 60px}
+
+.d-label{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--p);margin-bottom:10px}
+.d-label::before{content:'';width:20px;height:2px;background:var(--p);border-radius:2px}
+.d-title{font-size:clamp(22px,3.5vw,32px);font-weight:800;letter-spacing:-.5px;margin-bottom:10px;line-height:1.2}
+.d-desc{font-size:15px;color:var(--ts);max-width:560px;margin-bottom:28px}
+
+.callout{background:linear-gradient(135deg,#eef2ff,#fef3c7);border-radius:14px;padding:24px;margin:20px 0;border:1px solid rgba(99,102,241,.15)}
+.callout h4{font-size:16px;font-weight:800;margin-bottom:8px}
+.callout p{font-size:14px;color:var(--ts);line-height:1.8}
+
+.cmp{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--bd);margin:14px 0;font-size:13px}
+.cmp th{background:var(--grad);color:#fff;padding:12px 16px;font-size:13px;font-weight:600;text-align:left}
+.cmp td{padding:10px 16px;border-bottom:1px solid var(--bd)}
+.cmp tr:last-child td{border-bottom:none}
+
+.tl{position:relative;padding-left:28px;margin:16px 0}
+.tl::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--bd)}
+.tl-item{position:relative;margin-bottom:18px}
+.tl-item::before{content:'';position:absolute;left:-22px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--p);border:2px solid #fff;box-shadow:0 0 0 2px var(--p)}
+.tl-item .yr{font-size:12px;font-weight:700;color:var(--p);margin-bottom:2px}
+.tl-item .ev{font-size:13px;color:var(--ts)}
+
+.acc{border:1px solid var(--bd);border-radius:14px;background:var(--card);margin-bottom:10px;overflow:hidden;transition:box-shadow .3s}
+.acc:hover{box-shadow:var(--shadow)}
+.acc-h{padding:18px 22px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:background .2s;user-select:none}
+.acc-h:hover{background:rgba(99,102,241,.03)}
+.acc-h .ico{flex-shrink:0;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.acc-h .txt{flex:1}
+.acc-h .txt h4{font-size:15px;font-weight:700;margin-bottom:2px}
+.acc-h .txt p{font-size:13px;color:var(--ts)}
+.acc-h .arrow{font-size:14px;color:var(--ts);transition:transform .3s;flex-shrink:0}
+.acc.open .acc-h .arrow{transform:rotate(90deg)}
+.acc-b{max-height:0;overflow:hidden;transition:max-height .5s ease}
+.acc.open .acc-b{max-height:5000px}
+.acc-inner{padding:0 22px 22px}
+
+.acc2{border:1px solid #f1f5f9;border-radius:10px;background:#fafbfc;margin-bottom:8px;overflow:hidden}
+.acc2 .acc-h{padding:14px 18px}
+.acc2 .acc-h .ico{width:30px;height:30px;border-radius:8px;font-size:14px}
+.acc2 .acc-h .txt h4{font-size:14px}
+.acc2 .acc-h .txt p{font-size:12px}
+.acc2 .acc-b{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.acc2.open .acc-b{max-height:3000px}
+
+.acc3{border:1px dashed #e2e8f0;border-radius:8px;background:#fff;margin-bottom:6px;overflow:hidden}
+.acc3 .acc-h{padding:12px 16px}
+.acc3 .acc-h .ico{width:26px;height:26px;border-radius:6px;font-size:12px}
+.acc3 .acc-h .txt h4{font-size:13px;font-weight:600}
+.acc3 .acc-h .txt p{font-size:11px}
+.acc3 .acc-b{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.acc3.open .acc-b{max-height:1500px}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600}
+.tag-p{background:rgba(99,102,241,.1);color:var(--p)}
+.tag-a{background:rgba(245,158,11,.1);color:var(--a)}
+.tag-g{background:rgba(16,185,129,.1);color:var(--g)}
+.tag-r{background:rgba(239,68,68,.1);color:var(--r)}
+
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.stat-card{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px;text-align:center}
+.stat-card .n{font-size:20px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-card .l{font-size:11px;color:var(--ts);margin-top:2px}
+
+.chart-wrap{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;margin:16px 0}
+.chart-wrap h5{font-size:14px;font-weight:700;margin-bottom:12px}
+.chart{width:100%;height:300px}
+
+.ben-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.ben{padding:20px;background:var(--card);border:1px solid var(--bd);border-radius:12px;transition:.3s}
+.ben:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.ben .emoji{font-size:28px;margin-bottom:8px}
+.ben h4{font-size:15px;font-weight:700;margin-bottom:4px}
+.ben p{font-size:13px;color:var(--ts)}
+
+.step{display:flex;gap:20px;padding:24px;background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:16px;transition:.3s;position:relative;overflow:hidden}
+.step::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+.step:hover{box-shadow:var(--shadow);transform:translateX(4px)}
+.step .num{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;background:var(--grad)}
+.step h4{font-size:16px;font-weight:700;margin-bottom:6px}
+.step p{font-size:14px;color:var(--ts)}
+.step .sub{margin-top:10px;font-size:13px;color:var(--ts);padding-top:10px;border-top:1px dashed var(--bd)}
+
+.adv{display:flex;gap:16px;padding:18px;background:var(--card);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;transition:.2s}
+.adv:hover{box-shadow:var(--shadow);transform:translateX(4px)}
+.adv .pr{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff}
+.pr1{background:var(--r)}.pr2{background:var(--a)}.pr3{background:var(--g)}
+.adv h4{font-size:14px;font-weight:700;margin-bottom:2px}
+.adv p{font-size:13px;color:var(--ts)}
+
+.footer-note{text-align:center;padding:32px 24px 24px;color:var(--ts);font-size:12px;border-top:1px solid var(--bd);margin-top:24px}
+
+@media(max-width:640px){
+  .menu-grid{grid-template-columns:repeat(2,1fr)}
+  #bgReveal{clip-path:circle(110px at 50% 50%)}
+  .orb-line{font-size:clamp(22px,6vw,34px)}
+  .orb-line.mid{font-size:clamp(14px,4vw,22px)}
+  .ring-1{width:250px;height:250px;margin:-125px 0 0 -125px}.ring-2{width:310px;height:310px;margin:-155px 0 0 -155px}.ring-3{width:380px;height:380px;margin:-190px 0 0 -190px}.ring-4{width:460px;height:460px;margin:-230px 0 0 -230px}
+  #orbClick{width:220px;height:220px}
+  .ben-grid{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:1fr 1fr}
+}
+
+/* ============ 123 Logo ============ */
+.logo-123{position:fixed;top:16px;left:16px;right:auto;z-index:9999;height:40px;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.12);cursor:pointer;transition:transform .3s,box-shadow .3s;background:#fff;display:flex;align-items:center;padding:4px}
+.logo-123:hover{transform:scale(1.08);box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.logo-123 img{height:100%;width:auto;object-fit:contain}
+@media(max-width:480px){.logo-123{height:32px;top:12px;left:12px;border-radius:8px;padding:3px}}
+</style>
+</head>
+<body>
+<a class="logo-123" href="https://kids123code.com" target="_blank" title="123少儿编程"><img src="data:image/png;base64,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" alt="123"></a>
+
+<!-- ============ LANDING ============ -->
+<div id="landing">
+  <!-- Background circle: same gradient as hero, clipped to circle -->
+  <div id="bgReveal">
+    <div class="bg-orb"></div>
+    <div class="bg-orb"></div>
+  </div>
+  <!-- Ripple rings -->
+  <div class="ring-layer">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <div class="ring ring-4"></div>
+  </div>
+  <!-- Text: question that becomes the answer -->
+  <div id="orbTextWrap">
+    <span id="orbShuoHua" class="orb-line hl">"说话"</span>
+    <span id="orbJiuNeng" class="orb-line mid">就能</span>
+    <span id="orbXieDaiMa" class="orb-line dark">"写代码"</span>
+    <span id="orbQuestion" class="orb-line mid">？</span>
+    <span class="orb-hint">点击开始</span>
+  </div>
+  <!-- Click area -->
+  <div id="orbClick" onclick="expandOrb()"></div>
+  <!-- Hint -->
+  <div class="click-hint">↓ 点击圆圈，开始探索</div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app">
+  <section class="hero-main">
+    <div class="hero-orb"></div><div class="hero-orb"></div><div class="hero-orb"></div>
+    <div class="hero-c">
+      <div class="hero-top-bar">
+        <div class="hero-badge"><span>●</span> 给学生和家长的学习指南</div>
+        <a class="hero-case-btn" href="showcase.html" target="_blank" rel="noopener">📚 学习案例</a>
+      </div>
+      <h1 id="heroTitle"><span class="hero-add" id="heroYong">用</span><span class="hl" id="heroShuoHua">"说话"</span><span class="hero-add" id="heroDaiti">代替</span><span id="heroXieDaiMa">"写代码"</span><span class="hero-add" id="heroShidai">的时代</span></h1>
+      <p>你只需要用日常说话的方式告诉AI"我想要什么"，AI就帮你把代码全写出来。这是编程学习方式的巨大变革。</p>
+      <div class="hero-stats">
+        <div class="hero-num"><div class="v"><span class="cu" data-t="47">0</span>亿$</div><div class="l">全球市场规模</div></div>
+        <div class="hero-num"><div class="v"><span class="cu" data-t="84">0</span>%</div><div class="l">程序员已使用</div></div>
+        <div class="hero-num"><div class="v"><span class="cu" data-t="46">0</span>%</div><div class="l">新代码AI生成</div></div>
+        <div class="hero-num"><div class="v"><span class="cu" data-t="6700">0</span>%</div><div class="l">搜索量暴涨</div></div>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-item" onclick="openDetail(0)">
+          <span class="mi-ico">💡</span>
+          <span class="mi-title">它是什么</span>
+          <span class="mi-desc">Vibe Coding概念解读</span>
+        </div>
+        <div class="menu-item" onclick="openDetail(1)">
+          <span class="mi-ico">🎯</span>
+          <span class="mi-title">好在哪里</span>
+          <span class="mi-desc">对学生的4大好处</span>
+        </div>
+        <div class="menu-item" onclick="openDetail(2)">
+          <span class="mi-ico">📚</span>
+          <span class="mi-title">要怎么学</span>
+          <span class="mi-desc">4步学习路径</span>
+        </div>
+        <div class="menu-item" onclick="openDetail(3)">
+          <span class="mi-ico">⚠️</span>
+          <span class="mi-title">避坑指南</span>
+          <span class="mi-desc">3大风险与对策</span>
+        </div>
+        <div class="menu-item" onclick="openDetail(4)">
+          <span class="mi-ico">🚀</span>
+          <span class="mi-title">社会认可</span>
+          <span class="mi-desc">五大维度全面解读</span>
+        </div>
+        <div class="menu-item" onclick="openDetail(5)">
+          <span class="mi-ico">📋</span>
+          <span class="mi-title">行动建议</span>
+          <span class="mi-desc">给家长的6条建议</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ DETAIL VIEW ============ -->
+<div id="detail">
+  <div class="detail-top">
+    <div class="detail-bar">
+      <button class="back-btn" onclick="closeDetail()">← 返回</button>
+      <span class="detail-title" id="detailTitle"></span>
+    </div>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
+</div>
+
+<script>
+let expanded = false;
+let chartsInited = {};
+
+function expandOrb(){
+  if(expanded) return;
+  expanded = true;
+
+  // Start clearing landing white bg immediately (matches clip-path expansion timing)
+  document.getElementById('landing').classList.add('clear-bg');
+
+  // Make app layout-visible for position calculation (still opacity:0)
+  const app = document.getElementById('app');
+  app.style.visibility = 'visible';
+  app.style.position = 'relative';
+  app.style.zIndex = '0';
+
+  const heroSH = document.getElementById('heroShuoHua');
+  const heroXDM = document.getElementById('heroXieDaiMa');
+  const orbSH = document.getElementById('orbShuoHua');
+  const orbXDM = document.getElementById('orbXieDaiMa');
+
+  // Get rects
+  const shRect = heroSH.getBoundingClientRect();
+  const xdmRect = heroXDM.getBoundingClientRect();
+  const orbSHRect = orbSH.getBoundingClientRect();
+  const orbXDMRect = orbXDM.getBoundingClientRect();
+
+  // Calculate deltas (from orb position to hero position)
+  const dSHx = (shRect.left + shRect.width/2) - (orbSHRect.left + orbSHRect.width/2);
+  const dSHy = (shRect.top + shRect.height/2) - (orbSHRect.top + orbSHRect.height/2);
+  const dXDMx = (xdmRect.left + xdmRect.width/2) - (orbXDMRect.left + orbXDMRect.width/2);
+  const XDMy = (xdmRect.top + xdmRect.height/2) - (orbXDMRect.top + orbXDMRect.height/2);
+
+  // Scale factor (should be ~1.0 since orb and hero use same font-size clamp)
+  const heroFS = parseFloat(getComputedStyle(heroSH).fontSize);
+  const orbFS = parseFloat(getComputedStyle(orbSH).fontSize);
+  const scale = heroFS / orbFS;
+
+  // Move "说话" and "写代码" — keep them fully opaque (no opacity transition)
+  orbSH.style.transition = 'transform 1s cubic-bezier(.4,0,.15,1)';
+  orbXDM.style.transition = 'transform 1s cubic-bezier(.4,0,.15,1)';
+  orbSH.style.transform = `translate(${dSHx}px, ${dSHy}px) scale(${scale})`;
+  orbXDM.style.transform = `translate(${dXDMx}px, ${XDMy}px) scale(${scale})`;
+
+  // Fade out "就能" and "？" and hint
+  document.getElementById('orbTextWrap').classList.add('moving');
+
+  // Expand background circle
+  document.getElementById('bgReveal').classList.add('expand');
+
+  // Hide rings and click hint
+  document.querySelector('.ring-layer').classList.add('out');
+  document.querySelector('.click-hint').classList.add('out');
+
+  // Disable click area
+  document.getElementById('orbClick').style.pointerEvents = 'none';
+  document.getElementById('orbClick').style.opacity = '0';
+
+  // At ~700ms: start fading in hero-add words ("用","代替","的时代")
+  setTimeout(()=>{
+    document.querySelectorAll('.hero-add').forEach(el=>el.classList.add('show'));
+  }, 700);
+
+  // At ~950ms: text has arrived — instant swap orb→hero (same position & font = seamless)
+  setTimeout(()=>{
+    document.getElementById('orbTextWrap').classList.add('hidden');
+    // Clear inline styles, let CSS class take over
+    app.style.opacity = '';
+    app.style.visibility = '';
+    app.style.position = '';
+    app.style.zIndex = '';
+    app.classList.add('show');
+    document.getElementById('landing').classList.add('out');
+    // Stagger in remaining hero content
+    setTimeout(()=>{document.querySelector('.hero-badge').classList.add('show');document.querySelector('.hero-case-btn').classList.add('show')},50);
+    setTimeout(()=>document.querySelector('.hero-c>p').classList.add('show'),150);
+    setTimeout(()=>document.querySelector('.hero-stats').classList.add('show'),250);
+    setTimeout(()=>document.querySelector('.menu-grid').classList.add('show'),380);
+    initCountUp();
+  }, 950);
+}
+
+function openDetail(idx){
+  const detail = document.getElementById('detail');
+  const title = document.getElementById('detailTitle');
+  const body = document.getElementById('detailBody');
+  title.textContent = modules[idx].title;
+  body.innerHTML = modules[idx].html;
+  detail.classList.add('open');
+  detail.scrollTop = 0;
+  setTimeout(()=>{
+    if(modules[idx].charts) modules[idx].charts.forEach(id=>initChart(id));
+  },120);
+}
+
+function closeDetail(){
+  document.getElementById('detail').classList.remove('open');
+  Object.keys(chartsInited).forEach(k=>{chartsInited[k].dispose();delete chartsInited[k]});
+}
+
+function togAcc(el,ev){ev&&ev.stopPropagation();el.classList.toggle('open')}
+
+// ============ COUNT UP ============
+function initCountUp(){
+  const obs = new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){
+      const el=e.target,t=+el.dataset.t;let c=0;const s=t/40,timer=setInterval(()=>{c+=s;if(c>=t){c=t;clearInterval(timer)}el.textContent=Math.round(c)},30);obs.unobserve(el)
+    }
+  }),{threshold:.5});
+  document.querySelectorAll('.cu').forEach(el=>obs.observe(el));
+}
+
+// ============ CHARTS ============
+function initChart(id){
+  if(chartsInited[id]) return;
+  const el = document.getElementById(id);
+  if(!el) return;
+  const c = echarts.init(el);
+  chartsInited[id] = c;
+  if(chartDefs[id]) c.setOption(chartDefs[id]);
+  window.addEventListener('resize',()=>c.resize());
+}
+
+const chartDefs = {
+  c1:{tooltip:{trigger:'axis'},legend:{top:'bottom',data:['传统编程','Vibe Coding']},grid:{left:'6%',right:'6%',bottom:'15%',containLabel:true},xAxis:{type:'category',data:['第1周','第2周','第3周','第4周','第5周','第6周'],axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}}},yAxis:{type:'value',name:'完成度(%)',max:100,axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}},splitLine:{lineStyle:{color:'#f1f5f9'}}},series:[{name:'传统编程',type:'line',smooth:true,itemStyle:{color:'#94a3b8'},lineStyle:{type:'dashed'},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(148,163,184,.2)'},{offset:1,color:'rgba(148,163,184,0)'}]}},data:[0,2,5,8,15,20]},{name:'Vibe Coding',type:'line',smooth:true,itemStyle:{color:'#6366f1'},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(99,102,241,.3)'},{offset:1,color:'rgba(99,102,241,0)'}]}},data:[30,45,55,65,72,78]}]},
+  c2:{tooltip:{trigger:'axis'},legend:{top:'bottom',data:['正确使用 ✅','错误使用 ❌']},grid:{left:'6%',right:'6%',bottom:'15%',containLabel:true},xAxis:{type:'category',data:['学习理解','独立能力','代码质量','安全意识','长期成长'],axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}}},yAxis:{type:'value',name:'能力评分',max:100,axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}},splitLine:{lineStyle:{color:'#f1f5f9'}}},series:[{name:'正确使用 ✅',type:'bar',itemStyle:{color:'#10b981',borderRadius:[6,6,0,0]},barWidth:24,data:[85,80,75,70,90]},{name:'错误使用 ❌',type:'bar',itemStyle:{color:'#ef4444',borderRadius:[6,6,0,0]},barWidth:24,data:[30,25,40,20,15]}]},
+  c3:{radar:{indicator:[{name:'政策支持',max:100},{name:'教育体系融入',max:100},{name:'竞赛体系认可',max:100},{name:'市场需求',max:100},{name:'国际接轨',max:100}],shape:'circle',splitNumber:4,axisName:{color:'#64748b',fontSize:12},splitLine:{lineStyle:{color:'#e2e8f0'}},splitArea:{areaStyle:{color:['rgba(99,102,241,0.02)','rgba(99,102,241,0.05)']}}},series:[{type:'radar',data:[{value:[92,85,78,95,88],name:'2026年中国',areaStyle:{color:'rgba(99,102,241,0.15)'},lineStyle:{color:'#6366f1',width:2},itemStyle:{color:'#6366f1'}}]}]},
+  c4:{tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},grid:{left:'3%',right:'6%',bottom:'8%',top:'8%',containLabel:true},xAxis:{type:'value',axisLabel:{color:'#64748b',formatter:'{value}万'},axisLine:{lineStyle:{color:'#e2e8f0'}},splitLine:{lineStyle:{color:'#f1f5f9'}}},yAxis:{type:'category',data:['NOC','蓝桥杯','CSP-J/S','首届全国AI大赛'],axisLabel:{color:'#64748b',fontSize:12},axisLine:{lineStyle:{color:'#e2e8f0'}}},series:[{type:'bar',barWidth:22,itemStyle:{borderRadius:[0,6,6,0],color:function(p){return['#8b5cf6','#f59e0b','#10b981','#6366f1'][p.dataIndex]}},label:{show:true,position:'right',formatter:'{c}万人',color:'#64748b',fontSize:11},data:[140,25,20,4]}]},
+  c5:{tooltip:{trigger:'axis'},grid:{left:'6%',right:'4%',bottom:'12%',top:'8%',containLabel:true},xAxis:{type:'category',data:['2023','2024','2025','2026(预计)','2027(预计)'],axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}}},yAxis:{type:'value',name:'亿元',axisLabel:{color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}},splitLine:{lineStyle:{color:'#f1f5f9'}}},series:[{type:'line',smooth:true,data:[320,398,486,548,620],areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(99,102,241,0.25)'},{offset:1,color:'rgba(99,102,241,0)'}]}},lineStyle:{color:'#6366f1',width:3},itemStyle:{color:'#6366f1'},symbol:'circle',symbolSize:8,label:{show:true,formatter:'{c}亿',color:'#64748b',fontSize:11}}]},
+};
+
+// ============ MODULE CONTENT ============
+const modules = [
+  {title:'Vibe Coding是什么？',charts:['c1'],html:`
+<div class="d-label">概念解读</div>
+<div class="d-desc">一种全新的编程方式——你负责说"我想要什么"，AI帮你把代码全写出来。</div>
+<div class="callout"><h4>💡 一句话理解</h4><p>以前编程像"自己动手写一篇文章"，你得一个字一个字地敲；Vibe Coding像"口述想法，AI帮你成文"——你只需要说清楚想法，AI帮你变成代码。但<strong>你还得能判断AI写得对不对</strong>。</p></div>
+<table class="cmp"><thead><tr><th>对比</th><th>传统编程 😰</th><th>Vibe Coding ✨</th></tr></thead><tbody><tr><td><strong>你做什么</strong></td><td>一行一行手写代码</td><td>用自然语言说"我想要什么"</td></tr><tr><td><strong>出成果速度</strong></td><td>几天到几周</td><td>几分钟到几小时</td></tr><tr><td><strong>需要懂什么</strong></td><td>编程语法、算法细节</td><td>清楚自己要什么、能判断对错</td></tr><tr><td><strong>核心能力</strong></td><td>"怎么做"（技术实现）</td><td>"做什么"（创意+判断）</td></tr></tbody></table>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.1)">📖</div><div class="txt"><h4>它是怎么火起来的？ <span class="tag tag-a">点击展开</span></h4><p>从一条推文到年度词汇，不到一年席卷全球</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:14px;color:var(--ts);margin-bottom:12px">2025年2月，OpenAI联合创始人Andrej Karpathy发推说："我现在编程几乎不碰键盘了，对着AI说需求，它帮我全搞定。"他给这种方式起名叫<strong>"Vibe Coding（氛围编程）"</strong>。</p><div class="tl"><div class="tl-item"><div class="yr">2025年2月</div><div class="ev">Karpathy发推提出"Vibe Coding"</div></div><div class="tl-item"><div class="yr">2025年3月</div><div class="ev">Merriam-Webster收录为流行词汇</div></div><div class="tl-item"><div class="yr">2025年中</div><div class="ev">《纽约时报》《卫报》广泛报道</div></div><div class="tl-item"><div class="yr">2025年11月</div><div class="ev"><strong style="color:var(--p)">Collins词典评为年度词汇</strong>，搜索量暴涨6700%</div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.08)">🔧</div><div class="txt"><h4>为什么2025年才成为可能？ <span class="tag tag-a">展开</span></h4><p>三项底层技术同时成熟</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.06)">1️⃣</div><div class="txt"><h4>自然语言成了新"编程语言"</h4><p>AI能听懂你说的话了</p></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">GPT-4o、Claude、Gemini等模型能理解整个代码库的上下文，你说"做一个带登录功能的网站"它就知道怎么做。"最热门的新编程语言是英语"——现在真实现了。</p></div></div></div><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.06)">2️⃣</div><div class="txt"><h4>AI从"补全"升级为"全流程执行"</h4><p>AI不再只帮你写几个词，而是帮你做完整项目</p></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">2025年的AI编程工具能自主规划任务、跨文件编辑、运行测试、修复错误——形成"生成→验证→修正"的闭环。Claude在复杂工程问题上的成功率6个月内攀升至76%。</p></div></div></div><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.06)">3️⃣</div><div class="txt"><h4>工具生态爆发</h4><p>Cursor、Copilot等产品快速成熟</p></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">Cursor三年从0冲到20亿美元营收，被称为B2B软件史上最快成长案例。GitHub Copilot用户超1500万，OpenAI Codex周活400万+。</p></div></div></div></div></div></div></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.1)">📊</div><div class="txt"><h4>学习速度对比 <span class="tag tag-p">图表</span></h4><p>传统编程 vs Vibe Coding的学习曲线</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="chart-wrap"><h5>📊 可交付项目完成度对比</h5><div class="chart" id="c1"></div></div><p style="font-size:13px;color:var(--ts)">传统编程6周只能做出20%可交付项目；Vibe Coding第1周就能完成30%。<strong>"先甜后苦"比"先苦等半年才尝到甜头"更容易坚持</strong>。</p></div></div></div>
+<div class="footer-note">基于截至2026年6月的公开数据整理 | 数据来源：Stack Overflow, Keyhole Software, GitHub 等</div>
+  `},
+
+  {title:'Vibe Coding好在哪里？',charts:['c2'],html:`
+<div class="d-label">学习好处</div>
+<div class="d-desc">它让编程从"少数人的专业技能"变成"人人可用的创造工具"——但前提是正确使用。</div>
+<div class="ben-grid"><div class="ben"><div class="emoji">🎯</div><h4>门槛断崖式降低</h4><p>以前学10节课才能做网页，现在第一节课就能出成果。AI应用生成成功率98.1%。</p></div><div class="ben"><div class="emoji">⚡</div><h4>快速建立信心</h4><p>"我能行"的感觉来得更早——先体验创造，再深入技术细节，更容易坚持。</p></div><div class="ben"><div class="emoji">🧠</div><h4>聚焦高阶思维</h4><p>把精力放在需求分析、架构设计、代码审查这些AI难替代的能力上。</p></div><div class="ben"><div class="emoji">🌈</div><h4>跨学科创造</h4><p>非计算机专业也能做软件——编程成了各行各业的通用工具。</p></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.1)">🎯</div><div class="txt"><h4>门槛降低到底有多夸张？ <span class="tag tag-g">核心好处</span></h4><p>点击展开看真实案例和数据</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="stat-row"><div class="stat-card"><div class="n">98.1%</div><div class="l">学生AI应用生成成功率</div></div><div class="stat-card"><div class="n">5分钟</div><div class="l">教师首次创作中位时间</div></div><div class="stat-card"><div class="n">20分钟</div><div class="l">第一节课末尾就能出成果</div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">👦</div><div class="txt"><h4>真实案例：谁都能学会？ <span class="tag tag-a">展开</span></h4></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.06)">🎮</div><div class="txt"><h4>10岁小学生 — 独立创作游戏</h4></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">仅用自然语言描述想要的游戏规则和画面风格，AI就帮他生成了完整代码。传统编程模式下至少需要学半年。</p></div></div></div><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.06)">👴</div><div class="txt"><h4>91岁退休工程师 — 两天做出管理系统</h4></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">用Replit平台，仅凭业务理解和自然语言描述就做出了实用系统。年龄不再是学编程的障碍。</p></div></div></div><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.06)">👩‍🔬</div><div class="txt"><h4>材料学博士生 — 实验数据管理工具</h4></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts)">不懂编程的博士生用Vibe Coding把专业知识变成了实用软件工具。</p></div></div></div></div></div></div></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.1)">🧠</div><div class="txt"><h4>哪些能力越来越值钱？ <span class="tag tag-g">高阶思维</span></h4><p>当"写代码"不再是障碍，学生可以聚焦更重要的能力</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">🎯</div><div class="txt"><h4>需求分析 — "想清楚要做什么"</h4><p>能清晰描述"我想要什么"的人更有价值</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">你说得越清楚，AI做得越准确。这种"把想法说明白"的能力，在任何行业都很重要。</p></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">🏗️</div><div class="txt"><h4>架构思维 — "整体怎么搭"</h4><p>AI最难替代的能力，也是薪资最高的方向</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">不是"怎么写这一行代码"，而是"这个系统整体该怎么组织"。</p></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">🔍</div><div class="txt"><h4>代码审查 — "判断AI做得对不对"</h4><p>新兴教学法"先验证再信任"</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">先让AI生成完整应用，再逐行检查理解。这种"读代码"能力比"写代码"更稀缺。</p></div></div></div><div class="chart-wrap"><h5>📊 正确使用 vs 错误使用的能力差距</h5><div class="chart" id="c2"></div></div></div></div></div>
+  `},
+
+  {title:'学生应该怎么学？',charts:[],html:`
+<div class="d-label">学习方法</div>
+<div class="d-desc">最好的路径是"脚手架模型"——先用AI加速入门，再逐步减少依赖，最终独立编程。</div>
+<div class="step"><div class="num">1</div><div><h4>快速体验创造 — 用AI做你的第一个项目</h4><p>不用担心不懂代码，先用Vibe Coding做出一个能跑的东西。重点是体验"我能创造"的成就感。</p><div class="sub">💡 建议工具：字节的TRAE（免费）、阿里的通义灵码（免费）、Replit</div></div></div>
+<div class="step"><div class="num">2</div><div><h4>读懂AI写的代码 — "先验证再信任"</h4><p>AI帮你生成了代码，不要直接用——先逐行读懂。在修改任何一行之前，必须能解释它的功能。</p><div class="sub">💡 方法：让AI逐段解释代码含义，遇到不懂的追问"为什么这样做？"</div></div></div>
+<div class="step"><div class="num">3</div><div><h4>动手改代码 — 从"看"到"做"</h4><p>在读懂的基础上，尝试修改AI生成的代码：改一个颜色、加一个按钮、修一个bug。</p><div class="sub">💡 挑战：能不能不看AI的提示，自己改出想要的效果？</div></div></div>
+<div class="step"><div class="num">4</div><div><h4>减少AI依赖 — "脚手架拆除"</h4><p>从"AI写我看"→"我写AI帮"→"我写为主AI辅助"。最终目标是独立编程，AI只是效率工具。</p><div class="sub">💡 标准：遇到bug先自己想5分钟，实在不行再问AI</div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(245,158,11,.1)">📚</div><div class="txt"><h4>推荐学习资源 <span class="tag tag-a">展开</span></h4><p>免费工具和入门教程推荐</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.08)">🛠️</div><div class="txt"><h4>免费AI编程工具 <span class="tag tag-a">展开</span></h4></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><table class="cmp"><thead><tr><th>工具</th><th>适合谁</th><th>亮点</th></tr></thead><tbody><tr><td>字节 TRAE</td><td>零基础入门</td><td>中文最好、永久免费、全链路自动</td></tr><tr><td>阿里通义灵码</td><td>有一定基础</td><td>200+语言、云原生整合</td></tr><tr><td>腾讯CodeBuddy</td><td>微信开发者</td><td>微信生态提速80%</td></tr><tr><td>Replit</td><td>想快速体验</td><td>在线即用、无需安装</td></tr><tr><td>Cursor</td><td>进阶学习</td><td>全球最火、功能最全</td></tr></tbody></table></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(245,158,11,.08)">🎓</div><div class="txt"><h4>国内教育政策支持 <span class="tag tag-a">展开</span></h4></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="tl"><div class="tl-item"><div class="yr">2025年8月</div><div class="ev">国务院：把AI融入教育教学全过程</div></div><div class="tl-item"><div class="yr">2026年4月</div><div class="ev">教育部等五部门：2030年AI与教育深度融合</div></div><div class="tl-item"><div class="yr">地方</div><div class="ev">北京：每学年至少8小时AI教学</div></div></div></div></div></div></div></div>
+  `},
+
+  {title:'有什么坑？怎么避开？',charts:['c2'],html:`
+<div class="d-label">风险提醒</div>
+<div class="d-desc">Vibe Coding是一把双刃剑——用对了是加速器，用错了是坑。</div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.1)">😵</div><div class="txt"><h4>"不动脑"陷阱 — 最危险的坑 <span class="tag tag-r">风险1</span></h4><p>用AI当"老师"成绩更好，用AI当"代写"成绩更差</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:14px;color:var(--ts);margin-bottom:14px">UC Irvine研究了110名本科生、19,418个AI交互发现两种截然不同的使用方式：</p><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">✅</div><div class="txt"><h4>探究式求助 — 成绩更好</h4><p>"为什么这样做？""还有其他方法吗？"</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">顶尖学生像和老师对话一样，逐步深入理解原理。AI成了"导师"。</p><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.06)">💬</div><div class="txt"><h4>示例对话</h4></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts);background:#f0fdf4;padding:10px;border-radius:8px;margin-bottom:6px">👤 "AI，为什么这里用循环而不是递归？"</p><p style="font-size:12px;color:var(--ts);background:#eef2ff;padding:10px;border-radius:8px;margin-bottom:6px">🤖 "循环在这类场景下内存效率更高…"</p><p style="font-size:12px;color:var(--ts);background:#f0fdf4;padding:10px;border-radius:8px">👤 "那什么情况下递归更好呢？"</p></div></div></div></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.08)">❌</div><div class="txt"><h4>执行式求助 — 成绩更差</h4><p>"帮我做""给我答案""直接改完"</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">看起来完成了作业，但实际理解很浅。AI是"镜子"——它反映你的意图，不会主动帮你理解。</p><div class="acc3" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.06)">💬</div><div class="txt"><h4>示例对话</h4></div><div class="arrow" style="font-size:10px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:12px;color:var(--ts);background:#fef2f2;padding:10px;border-radius:8px;margin-bottom:6px">👤 "帮我做这个作业"</p><p style="font-size:12px;color:var(--ts);background:#eef2ff;padding:10px;border-radius:8px;margin-bottom:6px">🤖 [直接给完整答案代码]</p><p style="font-size:12px;color:var(--ts);background:#fef2f2;padding:10px;border-radius:8px">👤 "改成对的" [不知道哪错]</p></div></div></div></div></div></div><div class="chart-wrap"><h5>📊 两种方式的能力差距</h5><div class="chart" id="c2"></div></div></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.1)">🐛</div><div class="txt"><h4>"快但不稳" — 安全隐患 <span class="tag tag-r">风险2</span></h4><p>91.5%的Vibe Coding应用存在安全漏洞</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="stat-row"><div class="stat-card"><div class="n">91.5%</div><div class="l">应用存在安全漏洞</div></div><div class="stat-card"><div class="n">45%</div><div class="l">未通过基础安全标准</div></div><div class="stat-card"><div class="n">6x</div><div class="l">漏洞月增速</div></div></div><p style="font-size:13px;color:var(--ts)">Vibe Coding创造了一类"脆弱开发者"——能构建产品但无法调试。<strong>所以"读代码"和"安全审查"能力特别重要。</strong></p></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.1)">🦽</div><div class="txt"><h4>过度依赖 — "永远不拆训练轮" <span class="tag tag-r">风险3</span></h4><p>脚手架模型：初期撑着你，能力上来后要逐步拆掉</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">1️⃣</div><div class="txt"><h4>初期：高依赖 ✅ 正常</h4><p>AI帮你快速出成果，建立信心</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">这个阶段AI是学习加速器。不需要担心"依赖"——这是正常的学习起点。</p></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(245,158,11,.08)">2️⃣</div><div class="txt"><h4>中期：逐步减少 ⚠️ 关键</h4><p>开始理解代码原理，能独立修改</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">从"AI写我看"过渡到"我写AI帮"。这个阶段最关键——决定了你是"会用AI的人"还是"离了AI不行的人"。</p></div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.08)">3️⃣</div><div class="txt"><h4>后期：AI协作 🎯 目标</h4><p>能独立编程，AI是效率工具而非拐杖</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">最终目标：成为"AI时代的架构师"，而不是"被AI替代的码农"。</p></div></div></div></div></div></div>
+  `},
+
+  {title:'以后找工作会怎样？',charts:['c3','c4','c5','c6'],html:`
+<div class="d-label">社会认可度</div>
+<div class="d-desc">AI编程教育正获得前所未有的系统性认可——政策、教育、竞赛、市场、产业五维共振，前景广阔。</div>
+<div class="callout"><h4>💡 核心判断</h4><p>AI编程已不再是“兴趣班”，而是<strong>国家战略、教育体系、就业市场三重驱动</strong>的刚性需求。从教育部必修课到高校扩招、从白名单竞赛到千亿级市场，每一条赛道都在加速。</p></div>
+<div class="chart-wrap"><h5>📊 社会认可度五维雷达</h5><div class="chart" id="c3"></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(239,68,68,.1)">🏛️</div><div class="txt"><h4>国家政策强力驱动 <span class="tag tag-r">顶层设计</span></h4><p>从国务院到教育部，AI教育上升为国家战略</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="tl"><div class="tl-item"><div class="yr">2026.04</div><div class="ev">教育部等五部门发布《“人工智能+教育”行动计划》（教科信〔２０２６〕1号），明确2030年AI与教育深度融合目标</div></div><div class="tl-item"><div class="yr">2026.02</div><div class="ev">教育部部署AI通识课成中小学必修课，小学3年级起每学年≥8课时</div></div><div class="tl-item"><div class="yr">全面推进</div><div class="ev">AI素养纳入综合素质评价体系，509所基地校试点，国家智慧教育平台上线千门AI精品课</div></div></div><div class="stat-row"><div class="stat-card"><div class="n">509所</div><div class="l">AI教育试点基地校</div></div><div class="stat-card"><div class="n">≥8课时/年</div><div class="l">小学三年级起必修</div></div><div class="stat-card"><div class="n">1000+</div><div class="l">国家平台AI精品课</div></div></div></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.1)">🎓</div><div class="txt"><h4>高校招生全面倾斜 <span class="tag tag-p">升学红利</span></h4><p>AI方向成高校扩招主力，编程特长生升学通道畅通</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="stat-row"><div class="stat-card"><div class="n">38个</div><div class="l">2026年新增本科专业</div></div><div class="stat-card"><div class="n">300人</div><div class="l">复旦全投AI方向扩招</div></div><div class="stat-card"><div class="n">公共必修</div><div class="l">AI基础课升级趋势</div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.08)">🏆</div><div class="txt"><h4>竞赛获奖 → 升学直通车 <span class="tag tag-g">路径</span></h4></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">• <strong>CSP-J一等奖</strong> → 顶尖初中主动联系<br>• <strong>NOI金/银/铜牌</strong> → 清北保送/强基计划破格入围<br>• <strong>信息科技</strong>已纳入中考计分，省份增至<strong>14个</strong></p></div></div></div></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(16,185,129,.1)">🏅</div><div class="txt"><h4>竞赛体系日趋成熟 <span class="tag tag-g">白名单赛事</span></h4><p>教育部认可赛事全面覆盖，参赛规模屡创新高</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="chart-wrap"><h5>📊 主要赛事参赛规模</h5><div class="chart" id="c4"></div></div><table class="cmp"><thead><tr><th>赛事/认证</th><th>类型</th><th>亮点</th></tr></thead><tbody><tr><td>全国青少年AI大赛</td><td>教育部白名单</td><td>首届近4万人参赛，5大赛道</td></tr><tr><td>CSP-J/S</td><td>CCF主办</td><td>2025年参赛突破20万人</td></tr><tr><td>蓝桥杯</td><td>工信部白名单</td><td>参赛超25万人次</td></tr><tr><td>NOC</td><td>教育部白名单</td><td>参赛超140万人</td></tr><tr><td>GESP编程等级认证</td><td>CCF主办</td><td>六级以上可免CSP-J初赛</td></tr></tbody></table></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(245,158,11,.1)">📊</div><div class="txt"><h4>市场认知与规模爆发 <span class="tag tag-a">高速增长</span></h4><p>家长认知度超85%，市场规模迈向600亿</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="stat-row"><div class="stat-card"><div class="n">85.7%</div><div class="l">家长认知度（120万样本）</div></div><div class="stat-card"><div class="n">548亿</div><div class="l">2026年预计市场规模</div></div><div class="stat-card"><div class="n">28.6%</div><div class="l">一线城市参训渗透率</div></div><div class="stat-card"><div class="n">12,876家</div><div class="l">全国培训机构</div></div></div><div class="acc2" onclick="togAcc(this,event)"><div class="acc-h"><div class="ico" style="background:rgba(245,158,11,.08)">💹</div><div class="txt"><h4>家长选择AI编程的原因 <span class="tag tag-a">展开</span></h4></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner"><p style="font-size:13px;color:var(--ts)">• <strong>78.3%</strong> — 提升逻辑思维能力<br>• <strong>56.2%</strong> — 未来职业需求驱动<br>• <strong>43.5%</strong> — 受升学政策导向影响</p></div></div></div><div class="chart-wrap"><h5>📊 市场规模增长趋势（亿元）</h5><div class="chart" id="c5"></div></div><p style="font-size:12px;color:var(--ts)">三四线城市增速达31.8%，下沉市场潜力巨大。</p></div></div></div>
+<div class="acc" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(139,92,246,.1)">💼</div><div class="txt"><h4>产业人才需求旺盛 <span class="tag tag-p">刚需</span></h4><p>国家级培训目标300万人次，AI工程师纳入职业大典</p></div><div class="arrow">▶</div></div><div class="acc-b"><div class="acc-inner"><div class="stat-row"><div class="stat-card"><div class="n">300万+</div><div class="l">工信部2026年底培训目标</div></div><div class="stat-card"><div class="n">≥45%</div><div class="l">编程类培训占比要求</div></div><div class="stat-card"><div class="n">18.4%</div><div class="l">职业编程培训年增速</div></div></div><p style="font-size:13px;color:var(--ts)">人工智能工程技术人员已正式纳入<strong>国家职业分类大典</strong>，标志着AI编程能力从“技能加分项”升级为“职业准入标准”。</p></div></div></div>
+<div class="acc open" onclick="togAcc(this)"><div class="acc-h"><div class="ico" style="background:rgba(99,102,241,.08)">📚</div><div class="txt"><h4>数据来源与参考 <span class="tag tag-p">信源索引</span></h4><p>点击收起</p></div><div class="arrow" style="font-size:12px">▶</div></div><div class="acc-b"><div class="acc-inner" style="font-size:12px;color:var(--ts);line-height:1.9"><p><strong>🏛️ 国家政策</strong><br>① 教育部等五部门《“人工智能+教育”行动计划》（教科信〔２０２６〕1号）<a href="http://www.gov.cn/zhengce/zhengceku/202604/content_7065138.htm" target="_blank" style="color:#6366f1"> [原文链接]</a><br>② 教育部2026年2月AI通识课部署 — 国家智慧教育平台<a href="https://m.sohu.com/a/983353093_121106875" target="_blank" style="color:#6366f1"> [原文链接]</a><br><br><strong>🎓 高校招生</strong><br>③ 2026年本科专业目录调整（38个新增专业）<a href="https://m.huanqiu.com/article/4S8VK1uMXsN" target="_blank" style="color:#6366f1"> [原文链接]</a><br>④ 复旦扩招300人全投AI方向 — 央视新闻<a href="https://content-static.cctvnews.cctv.com/snow-book/index.html?channelId=777&item_id=12968368656352860971" target="_blank" style="color:#6366f1"> [原文链接]</a><br><br><strong>🏅 竞赛体系</strong><br>⑤ 首届全国青少年人工智能大赛<a href="https://aic.cwicp.cn" target="_blank" style="color:#6366f1"> [官网]</a><br>⑥ CSP-J/S 2025年参赛数据<a href="https://www.xiaomawang.cn/index.php?a=index&aid=233174" target="_blank" style="color:#6366f1"> [原文链接]</a><br><br><strong>📊 市场数据</strong><br>⑦ 编程教育市场调研（85.7%家长认知度，120万样本）<a href="https://m.book118.com/html/2025/1019/6235015204012000.shtm" target="_blank" style="color:#6366f1"> [原文链接]</a><br>⑧ 市场规模预测（2025年486.3亿元）<a href="https://www.docin.com/touch_new/preview_new.do?id=4943874476" target="_blank" style="color:#6366f1"> [原文链接]</a><br><br><strong>💼 产业需求</strong><br>⑨ 工信部数字技术工程师培训计划（300万人次）<a href="https://zsgx.mohrss.gov.cn/" target="_blank" style="color:#6366f1"> [原文链接]</a><br>⑩ 国家职业分类大典 — 人工智能工程技术人员<a href="https://www.clssn.com/2025/07/03/wap_9948362.html" target="_blank" style="color:#6366f1"> [原文链接]</a></p></div></div></div>
+<div class="footer-note">基于截至2026年6月的公开数据整理 | 详细信源见页面底部“数据来源与参考”</div>
+<div class="footer-note">基于截至2026年6月的公开数据整理 | 数据来源：Stack Overflow, Keyhole Software, GitHub, 新华网, Gartner, CB Insights 等</div>
+  `},
+
+  {title:'给家长和学生的6条建议',charts:[],html:`
+<div class="d-label">行动建议</div>
+<div class="d-desc">不是"会不会写代码"的竞争，而是"会不会和AI一起工作"的竞争。</div>
+<div class="adv"><div class="pr pr1">1</div><div><h4>先学"读代码"，再学"写代码"</h4><p>能看懂代码比能写代码更稀缺、更有价值。就像先学会品鉴文章，再学写作。</p></div></div>
+<div class="adv"><div class="pr pr1">2</div><div><h4>用AI"学习"而不是"代劳"</h4><p>问"为什么这样做？"成绩更好，说"帮我做"成绩更差。差距非常大。</p></div></div>
+<div class="adv"><div class="pr pr2">3</div><div><h4>学习系统设计和架构思维</h4><p>这是AI最难替代的能力，也是薪资最高的方向。</p></div></div>
+<div class="adv"><div class="pr pr2">4</div><div><h4>建立安全意识</h4><p>91.5%的AI生成代码有安全隐患，不懂安全就不及格。</p></div></div>
+<div class="adv"><div class="pr pr3">5</div><div><h4>精通1-2款AI编程工具</h4><p>工具使用已经是基本技能，不是加分项。国内多款工具个人版免费。</p></div></div>
+<div class="adv"><div class="pr pr3">6</div><div><h4>保持对多种编程语言的基础了解</h4><p>防止被单一工具"锁住"，多一种语言多一条路。不需要精通，但要能读懂。</p></div></div>
+<div class="callout"><h4>💡 最好的学习路径</h4><p>用Vibe Coding<strong>快速体验创造</strong> → 逐步<strong>理解代码原理</strong> → 学会<strong>审查和改进AI的输出</strong> → 最终成为<strong>"AI时代的架构师"</strong>，而不是"被AI替代的码农"。</p></div>
+  `}
+];
+</script>
+</body>
+</html>

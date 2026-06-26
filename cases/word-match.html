@@ -1,0 +1,3078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>词语连连看</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #FF6B6B;
+      --secondary: #4ECDC4;
+      --accent: #FFE66D;
+      --bg: #FFF9F0;
+      --text: #2D3436;
+      --text-light: #636E72;
+      --white: #FFFFFF;
+      --shadow: rgba(0,0,0,0.1);
+      --success: #00B894;
+      --error: #E74C3C;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .page {
+      display: none;
+      min-height: 100vh;
+      padding: 20px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* 首页样式 */
+    .home-header {
+      text-align: center;
+      padding: 30px 0;
+    }
+
+    .home-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .home-subtitle {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    .mode-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    .mode-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 20px var(--shadow);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mode-card:active {
+      transform: scale(0.98);
+    }
+
+    .mode-card.primary {
+      border: 3px solid var(--primary);
+    }
+
+    .mode-card.primary .mode-icon {
+      background: var(--primary);
+    }
+
+    .mode-card.secondary .mode-icon {
+      background: var(--secondary);
+    }
+
+    .mode-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      color: var(--white);
+      flex-shrink: 0;
+    }
+
+    .mode-info h3 {
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .mode-info p {
+      color: var(--text-light);
+      font-size: 0.85rem;
+    }
+
+    .tool-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .tool-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 12px var(--shadow);
+    }
+
+    .tool-card:active {
+      transform: scale(0.96);
+    }
+
+    .tool-card .icon {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+
+    .tool-card span {
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .home-stats {
+      margin-top: 30px;
+      text-align: center;
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    .home-stats span {
+      margin: 0 8px;
+    }
+
+    /* 难度选择页 */
+    .difficulty-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--white);
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .difficulty-title {
+      flex: 1;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .difficulty-mode-tag {
+      display: inline-block;
+      background: var(--primary);
+      color: var(--white);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      margin-bottom: 20px;
+    }
+
+    .difficulty-options {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .difficulty-btn {
+      background: var(--white);
+      border: 2px solid transparent;
+      border-radius: 14px;
+      padding: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: border-color 0.2s, transform 0.2s;
+      box-shadow: 0 3px 15px var(--shadow);
+    }
+
+    .difficulty-btn:active {
+      transform: scale(0.98);
+    }
+
+    .difficulty-btn.selected {
+      border-color: var(--primary);
+    }
+
+    .diff-level {
+      font-size: 1.3rem;
+      font-weight: 700;
+      width: 50px;
+    }
+
+    .diff-level.easy { color: var(--success); }
+    .diff-level.medium { color: var(--accent); }
+    .diff-level.hard { color: var(--error); }
+
+    .diff-info h4 {
+      font-size: 1rem;
+      margin-bottom: 2px;
+    }
+
+    .diff-info p {
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .start-game-btn {
+      margin-top: 30px;
+      width: 100%;
+      padding: 16px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: 14px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255,107,107,0.3);
+    }
+
+    .start-game-btn:active {
+      transform: scale(0.98);
+    }
+
+    /* 游戏页 */
+    .game-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .game-stats {
+      display: flex;
+      gap: 12px;
+    }
+
+    .stat-item {
+      background: var(--white);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .stat-item .value {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .game-mode-hint {
+      text-align: center;
+      padding: 10px;
+      background: var(--secondary);
+      color: var(--white);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .card-grid.grid-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .card-grid.grid-6 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .card-grid.grid-8 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .char-card {
+      aspect-ratio: 1;
+      background: var(--white);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 3px 12px var(--shadow);
+      transition: transform 0.15s, background 0.15s;
+      user-select: none;
+      min-height: 70px;
+    }
+
+    .char-card:active {
+      transform: scale(0.95);
+    }
+
+    .char-card.selected {
+      background: var(--primary);
+      color: var(--white);
+      transform: scale(1.05);
+    }
+
+    .char-card.matched {
+      animation: matchPop 0.4s ease-out forwards;
+    }
+
+    .char-card.wrong {
+      animation: shake 0.4s ease-out;
+    }
+
+    .word-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 3px 12px var(--shadow);
+      transition: transform 0.15s, background 0.15s;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .word-card:active {
+      transform: scale(0.95);
+    }
+
+    .word-card.selected {
+      background: var(--secondary);
+      color: var(--white);
+    }
+
+    .word-card.matched {
+      animation: matchPop 0.4s ease-out forwards;
+    }
+
+    .word-card.wrong {
+      animation: shake 0.4s ease-out;
+    }
+
+    @keyframes matchPop {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(0); opacity: 0; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-8px); }
+      80% { transform: translateX(8px); }
+    }
+
+    /* 正方形矩阵布局 */
+    .matrix-container {
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+    }
+
+    .matrix {
+      display: grid;
+      gap: 3px;
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 1;
+    }
+
+    .matrix.size-6 {
+      grid-template-columns: repeat(6, 1fr);
+    }
+
+    .matrix.size-8 {
+      grid-template-columns: repeat(8, 1fr);
+    }
+
+    .matrix.size-10 {
+      grid-template-columns: repeat(10, 1fr);
+    }
+
+    /* 矩阵格子 */
+    .matrix-cell {
+      aspect-ratio: 1;
+      background: var(--white);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 1px 4px var(--shadow);
+      user-select: none;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .matrix.size-6 .matrix-cell {
+      font-size: 1.4rem;
+      border-radius: 8px;
+    }
+
+    .matrix.size-8 .matrix-cell {
+      font-size: 1.1rem;
+      border-radius: 6px;
+    }
+
+    .matrix.size-10 .matrix-cell {
+      font-size: 0.9rem;
+      border-radius: 5px;
+    }
+
+    .matrix-cell.selected {
+      background: var(--primary);
+      color: var(--white);
+      transform: scale(1.05);
+    }
+
+    .matrix-cell.matched {
+      background: var(--bg);
+      color: transparent;
+      pointer-events: none;
+      animation: cellMatch 0.4s ease-out forwards;
+    }
+
+    @keyframes cellMatch {
+      0% { transform: scale(1); background: var(--success); color: white; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(0.9); background: var(--bg); color: transparent; opacity: 0.5; }
+    }
+
+    .matrix-cell.wrong {
+      animation: cellShake 0.3s ease-out;
+    }
+
+    @keyframes cellShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    /* 词汇记录区域 */
+    .word-record {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .word-record-title {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    .word-record-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 30px;
+    }
+
+    .word-tag {
+      padding: 4px 10px;
+      background: linear-gradient(135deg, var(--secondary), #45B7AA);
+      color: white;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      animation: tagIn 0.3s ease-out;
+    }
+
+    @keyframes tagIn {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* 弹窗 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 30px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+
+    .modal-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    .modal h2 {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      color: var(--primary);
+    }
+
+    .modal-stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 25px;
+    }
+
+    .modal-stat {
+      text-align: center;
+    }
+
+    .modal-stat .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .modal-stat .label {
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+
+    .modal-btns {
+      display: flex;
+      gap: 12px;
+    }
+
+    .modal-btns button {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--white);
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* 词库管理页 */
+    .tab-nav {
+      display: flex;
+      background: var(--white);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px var(--shadow);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: var(--white);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .word-group-list, .word-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .group-card, .word-item {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px var(--shadow);
+      cursor: pointer;
+    }
+
+    .group-info h4 {
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+
+    .group-info p {
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .word-item span {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-edit {
+      background: #E3F2FD;
+      color: #1976D2;
+    }
+
+    .btn-delete {
+      background: #FFEBEE;
+      color: #E53935;
+    }
+
+    .btn-restore {
+      background: #E8F5E9;
+      color: #43A047;
+    }
+
+    .add-word-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255,107,107,0.4);
+    }
+
+    /* 添加词弹窗 */
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #E0E0E0;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .relation-select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #E0E0E0;
+      border-radius: 10px;
+      font-size: 1rem;
+      background: var(--white);
+    }
+
+    /* 记词册页 */
+    .filter-btns {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 8px 14px;
+      border: 2px solid var(--primary);
+      background: var(--white);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--primary);
+    }
+
+    .filter-btn.active {
+      background: var(--primary);
+      color: var(--white);
+    }
+
+    .record-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px var(--shadow);
+      margin-bottom: 10px;
+    }
+
+    .record-word {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .record-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    .status-badge.mastered {
+      background: #E8F5E9;
+      color: #43A047;
+    }
+
+    .status-badge.learning {
+      background: #E3F2FD;
+      color: #1976D2;
+    }
+
+    .status-badge.new {
+      background: #F5F5F5;
+      color: #9E9E9E;
+    }
+
+    .record-count {
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .review-btn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 30px;
+      background: var(--secondary);
+      color: var(--white);
+      border: none;
+      border-radius: 25px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(78,205,196,0.4);
+    }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text-light);
+    }
+
+    .empty-state .icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    /* 图片上传 */
+    .upload-area {
+      border: 2px dashed #DDD;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+
+    .upload-area:hover {
+      border-color: var(--primary);
+    }
+
+    .upload-area .icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .image-preview {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--white);
+      padding: 12px 24px;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      z-index: 200;
+      animation: fadeInUp 0.3s ease;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    /* 分类标签 */
+    .category-tag {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #F5F5F5;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 6px;
+    }
+
+    /* 详情页 */
+    .detail-word {
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--primary);
+    }
+
+    .detail-section {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px var(--shadow);
+    }
+
+    .detail-section h4 {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-bottom: 10px;
+    }
+
+    .relation-tag {
+      display: inline-block;
+      padding: 6px 12px;
+      background: #F0F0F0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin: 4px;
+    }
+
+    .relation-tag.near { background: #E8F5E9; color: #43A047; }
+    .relation-tag.opposite { background: #FFEBEE; color: #E53935; }
+    .relation-tag.similar { background: #E3F2FD; color: #1976D2; }
+
+    /* 隐藏滚动条但保持功能 */
+    .scroll-container {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 提示按钮 */
+    .hint-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 2px 8px var(--shadow);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hint-btn.disabled {
+      background: #DDD;
+      cursor: not-allowed;
+    }
+
+    .hint-btn .count {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: var(--primary);
+      color: white;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 中提示闪烁动画 */
+    .matrix-cell.hint-flash {
+      animation: hintFlash 0.3s ease-in-out 3;
+      border: 3px solid var(--accent);
+      z-index: 10;
+    }
+
+    @keyframes hintFlash {
+      0%, 100% { transform: scale(1); background: var(--white); }
+      50% { transform: scale(1.15); background: var(--accent); color: var(--white); }
+    }
+
+    /* 强提示效果 */
+    .matrix-cell.hint-reveal {
+      background: var(--success) !important;
+      color: white !important;
+      transform: scale(1.1);
+      z-index: 10;
+    }
+
+    /* 词卡中提示闪烁 */
+    .word-card.hint-flash {
+      animation: hintFlash 0.3s ease-in-out 3;
+      border: 3px solid var(--accent);
+      z-index: 10;
+    }
+
+    /* 词卡强提示效果 */
+    .word-card.hint-reveal {
+      background: var(--success) !important;
+      color: white !important;
+      transform: scale(1.05);
+      z-index: 10;
+    }
+
+    /* 提示面板 */
+    .hint-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--white);
+      border-radius: 20px 20px 0 0;
+      padding: 20px;
+      z-index: 150;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .hint-panel.active {
+      transform: translateY(0);
+    }
+
+    .hint-panel-title {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .hint-option {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.2s;
+    }
+
+    .hint-option:active {
+      background: #EEE;
+    }
+
+    .hint-option.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .hint-option-icon {
+      font-size: 1.5rem;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--white);
+      border-radius: 10px;
+    }
+
+    .hint-option-info {
+      flex: 1;
+    }
+
+    .hint-option-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .hint-option-title .hints-left {
+      color: var(--primary);
+      font-size: 0.85rem;
+      margin-left: 8px;
+    }
+
+    .hint-option-desc {
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+
+    .hint-cancel {
+      width: 100%;
+      padding: 14px;
+      background: var(--white);
+      border: 2px solid #E0E0E0;
+      border-radius: 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .hint-panel-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+      display: none;
+    }
+
+    .hint-panel-overlay.active {
+      display: block;
+    }
+
+    /* 轻提示气泡 */
+    .hint-toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--text);
+      color: var(--white);
+      padding: 16px 28px;
+      border-radius: 16px;
+      font-size: 1rem;
+      z-index: 200;
+      animation: hintToastIn 0.3s ease;
+      text-align: center;
+      max-width: 280px;
+    }
+
+    @keyframes hintToastIn {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <!-- 首页 -->
+  <div id="homePage" class="page active">
+    <div class="home-header">
+      <h1 class="home-title">🧩 词语连连看</h1>
+      <p class="home-subtitle">拆字配对 · 近义配对 · 轻松记词</p>
+    </div>
+
+    <div class="mode-cards">
+      <div class="mode-card primary" onclick="showDifficulty('split')">
+        <div class="mode-icon">🧩</div>
+        <div class="mode-info">
+          <h3>拆字连连看</h3>
+          <p>点击散落的字卡，拼成完整词语</p>
+        </div>
+      </div>
+      <div class="mode-card secondary" onclick="showDifficulty('pair')">
+        <div class="mode-icon">🔗</div>
+        <div class="mode-info">
+          <h3>近义配对</h3>
+          <p>找出语义相关的词语进行配对</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-cards">
+      <div class="tool-card" onclick="showWordBook()">
+        <div class="icon">📖</div>
+        <span>记词册</span>
+      </div>
+      <div class="tool-card" onclick="showWordManage()">
+        <div class="icon">📚</div>
+        <span>词库管理</span>
+      </div>
+    </div>
+
+    <div class="home-stats">
+      <span>已学习 <strong id="totalLearned">0</strong> 词</span>
+      <span>·</span>
+      <span>已掌握 <strong id="totalMastered">0</strong> 词</span>
+    </div>
+  </div>
+
+  <!-- 难度选择页 -->
+  <div id="difficultyPage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" onclick="goBack()">←</button>
+      <div class="difficulty-title">选择难度</div>
+      <div style="width:40px;"></div>
+    </div>
+
+    <div style="text-align:center;">
+      <span class="difficulty-mode-tag" id="modeTag">拆字连连看</span>
+    </div>
+
+    <div class="difficulty-options">
+      <div class="difficulty-btn selected" onclick="selectDifficulty(this, 'easy')">
+        <div class="diff-level easy">简单</div>
+        <div class="diff-info">
+          <h4>6×6 方阵 · 18个词</h4>
+          <p>适合初次尝试</p>
+        </div>
+      </div>
+      <div class="difficulty-btn" onclick="selectDifficulty(this, 'medium')">
+        <div class="diff-level medium">普通</div>
+        <div class="diff-info">
+          <h4>8×8 方阵 · 32个词</h4>
+          <p>适中挑战</p>
+        </div>
+      </div>
+      <div class="difficulty-btn" onclick="selectDifficulty(this, 'hard')">
+        <div class="diff-level hard">困难</div>
+        <div class="diff-info">
+          <h4>10×10 方阵 · 50个词</h4>
+          <p>烧脑挑战</p>
+        </div>
+      </div>
+    </div>
+
+    <button class="start-game-btn" onclick="startGame()">开始游戏</button>
+  </div>
+
+  <!-- 游戏页 -->
+  <div id="gamePage" class="page">
+    <div class="game-header">
+      <button class="back-btn" onclick="confirmExit()">←</button>
+      <div class="game-stats">
+        <div class="stat-item">⏱ <span class="value" id="gameTime">0:00</span></div>
+        <div class="stat-item">得分 <span class="value" id="gameScore">0</span></div>
+      </div>
+      <button class="hint-btn" id="hintBtn" onclick="showHintPanel()">💡<span class="count" id="hintCount">3</span></button>
+      <button class="back-btn" onclick="restartGame()">↻</button>
+    </div>
+
+    <div class="game-mode-hint" id="gameHint">点击两个字拼成词语</div>
+
+    <!-- 正方形矩阵区域（拆字模式） -->
+    <div class="matrix-container" id="matrixContainer" style="display:none;">
+      <div class="matrix" id="gameMatrix"></div>
+    </div>
+    
+    <!-- 旧卡片网格（近义配对模式使用） -->
+    <div class="card-grid" id="cardGrid"></div>
+
+    <!-- 词汇记录区域 -->
+    <div class="word-record" id="wordRecord">
+      <div class="word-record-title">已拼出的词语</div>
+      <div class="word-record-list" id="wordRecordList"></div>
+    </div>
+  </div>
+
+  <!-- 过关弹窗 -->
+  <div id="winModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-icon">🎉</div>
+      <h2>恭喜过关！</h2>
+      <div class="modal-stats">
+        <div class="modal-stat">
+          <div class="value" id="winTime">0:00</div>
+          <div class="label">用时</div>
+        </div>
+        <div class="modal-stat">
+          <div class="value" id="winScore">0</div>
+          <div class="label">得分</div>
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-secondary" onclick="goHome()">返回首页</button>
+        <button class="btn-primary" onclick="playAgain()">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示面板 -->
+  <div class="hint-panel-overlay" id="hintOverlay" onclick="closeHintPanel()"></div>
+  <div class="hint-panel" id="hintPanel">
+    <div class="hint-panel-title">选择提示级别</div>
+    <div class="hint-option" id="lightHintOption" onclick="useHint('light')">
+      <div class="hint-option-icon">💡</div>
+      <div class="hint-option-info">
+        <div class="hint-option-title">轻提示 <span class="hints-left" id="lightHintLeft">剩余3次</span></div>
+        <div class="hint-option-desc">显示词语分类</div>
+      </div>
+    </div>
+    <div class="hint-option" id="mediumHintOption" onclick="useHint('medium')">
+      <div class="hint-option-icon">🔍</div>
+      <div class="hint-option-info">
+        <div class="hint-option-title">中提示 <span class="hints-left" id="mediumHintLeft">剩余3次</span></div>
+        <div class="hint-option-desc">高亮配对目标</div>
+      </div>
+    </div>
+    <div class="hint-option" id="strongHintOption" onclick="useHint('strong')">
+      <div class="hint-option-icon">👀</div>
+      <div class="hint-option-info">
+        <div class="hint-option-title">强提示 <span class="hints-left" id="strongHintLeft">剩余3次</span></div>
+        <div class="hint-option-desc">显示完整词语</div>
+      </div>
+    </div>
+    <button class="hint-cancel" onclick="closeHintPanel()">取消</button>
+  </div>
+
+  <!-- 词库管理页 -->
+  <div id="wordManagePage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" onclick="goHome()">←</button>
+      <div class="difficulty-title">词库管理</div>
+      <div style="width:40px;"></div>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('myWords')">我的词组</button>
+      <button class="tab-btn" onclick="switchTab('presetWords')">预设词库</button>
+      <button class="tab-btn" onclick="switchTab('blacklist')">拉黑列表</button>
+    </div>
+
+    <!-- 我的词组 -->
+    <div id="myWordsTab" class="tab-content active">
+      <div id="myWordGroups" class="word-group-list"></div>
+      <div class="empty-state" id="emptyMyWords" style="display:none;">
+        <div class="icon">📝</div>
+        <p>暂无自定义词组<br>点击下方按钮添加</p>
+      </div>
+    </div>
+
+    <!-- 预设词库 -->
+    <div id="presetWordsTab" class="tab-content">
+      <div id="presetCategories"></div>
+    </div>
+
+    <!-- 拉黑列表 -->
+    <div id="blacklistTab" class="tab-content">
+      <div id="blacklistItems" class="word-list"></div>
+      <div class="empty-state" id="emptyBlacklist" style="display:none;">
+        <div class="icon">✅</div>
+        <p>暂无拉黑项目</p>
+      </div>
+    </div>
+
+    <button class="add-word-btn" onclick="showAddWordModal()">+</button>
+  </div>
+
+  <!-- 添加词弹窗 -->
+  <div id="addWordModal" class="modal-overlay">
+    <div class="modal">
+      <h2>添加词语</h2>
+      <!-- 模式切换 -->
+      <div style="display:flex;background:#F5F5F5;border-radius:10px;padding:3px;margin-bottom:18px;">
+        <button id="addModeQuick" onclick="switchAddMode('quick')" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;background:var(--primary);color:white;transition:all 0.2s;">🧩 快速添加</button>
+        <button id="addModeFull" onclick="switchAddMode('full')" style="flex:1;padding:10px;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;background:transparent;color:var(--text-light);transition:all 0.2s;">🔗 完整添加</button>
+      </div>
+      <div class="form-group">
+        <label>词语（必填，两字词）</label>
+        <input type="text" id="newWordInput" maxlength="2" placeholder="如：开心">
+      </div>
+      <!-- 快速模式：批量输入 -->
+      <div id="quickAddSection">
+        <div class="form-group">
+          <label>批量添加（每行一个两字词）</label>
+          <textarea id="batchWordInput" rows="4" placeholder="开心&#10;快乐&#10;悲伤" style="width:100%;padding:12px;border:2px solid #E0E0E0;border-radius:10px;font-size:1rem;resize:vertical;font-family:inherit;"></textarea>
+        </div>
+      </div>
+      <!-- 完整模式：关联词 -->
+      <div id="fullAddSection" style="display:none;">
+        <div class="form-group">
+          <label>关联词（可选）</label>
+          <input type="text" id="relatedWordInput" maxlength="4" placeholder="如：快乐">
+        </div>
+        <div class="form-group">
+          <label>关系类型</label>
+          <select class="relation-select" id="relationType">
+            <option value="near">近义词</option>
+            <option value="opposite">反义词</option>
+            <option value="similar">同类词</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-secondary" onclick="closeAddWordModal()">取消</button>
+        <button class="btn-primary" onclick="addWord()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 记词册页 -->
+  <div id="wordBookPage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" onclick="goHome()">←</button>
+      <div class="difficulty-title">记词册</div>
+      <div style="width:40px;"></div>
+    </div>
+
+    <div class="filter-btns">
+      <button class="filter-btn active" onclick="filterWords('all')">全部</button>
+      <button class="filter-btn" onclick="filterWords('mastered')">已掌握</button>
+      <button class="filter-btn" onclick="filterWords('learning')">学习中</button>
+      <button class="filter-btn" onclick="filterWords('new')">未学</button>
+    </div>
+
+    <div id="wordRecords" class="scroll-container" style="max-height:60vh;"></div>
+
+    <button class="review-btn" onclick="startReview()">🧠 复习模式</button>
+  </div>
+
+  <!-- 词组详情页 -->
+  <div id="groupDetailPage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" onclick="showWordManage()">←</button>
+      <div class="difficulty-title" id="groupTitle">词组详情</div>
+      <button class="back-btn" onclick="deleteGroup()" style="background:#FFEBEE;color:#E53935;">🗑</button>
+    </div>
+    <div id="groupWords" class="word-list"></div>
+  </div>
+
+  <!-- 词语详情页 -->
+  <div id="wordDetailPage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" id="wordDetailBack">←</button>
+      <div class="difficulty-title">词语详情</div>
+      <div style="width:40px;"></div>
+    </div>
+    <div class="detail-word" id="detailWordText"></div>
+    <div class="detail-section">
+      <h4>掌握状态</h4>
+      <div id="detailStatus"></div>
+    </div>
+    <div class="detail-section">
+      <h4>关联词</h4>
+      <div id="detailRelations"></div>
+    </div>
+    <div class="detail-section">
+      <h4>操作</h4>
+      <button class="btn-secondary" style="width:100%;margin-top:10px;" id="blacklistWordBtn" onclick="toggleBlacklistWord()">加入拉黑</button>
+    </div>
+  </div>
+
+  <!-- 分类详情页 -->
+  <div id="categoryDetailPage" class="page">
+    <div class="difficulty-header">
+      <button class="back-btn" onclick="showWordManage()">←</button>
+      <div class="difficulty-title" id="categoryTitle">分类词库</div>
+      <div style="width:40px;"></div>
+    </div>
+    <div id="categoryWords" class="word-list"></div>
+    <button class="add-word-btn" style="position:static;margin:20px auto;display:block;" onclick="blacklistCategory()">🚫 拉黑此类</button>
+  </div>
+
+  <script>
+    // ==================== 数据模型 ====================
+    // ==================== 数据模型 ====================
+    const PRESET_CATEGORIES = {
+      '情感': ['开心', '快乐', '悲伤', '难过', '高兴', '愉快', '害怕', '恐惧', '生气', '愤怒', '满意', '满足', '惊讶', '失望', '后悔', '感动', '寂寞', '孤独', '轻松', '自在', '害羞', '紧张', '期待', '羡慕', '嫉妒', '骄傲', '谦虚', '感恩', '幸福', '温暖'],
+      '自然': ['天空', '大地', '太阳', '月亮', '星星', '高山', '流水', '春天', '夏天', '秋天', '冬天', '森林', '草原', '大海', '河流', '云彩', '雷电', '冰雹', '雾气', '彩虹', '暴雨', '微风', '岩石', '沙漠', '湖泊', '瀑布', '岛屿', '峡谷', '丘陵', '沼泽'],
+      '动物': ['老虎', '狮子', '大象', '猴子', '兔子', '熊猫', '狐狸', '鹦鹉', '蝴蝶', '蜜蜂', '蚂蚁', '乌龟', '猫咪', '小狗', '企鹅', '海豚', '鲨鱼', '老鹰', '孔雀', '仙鹤', '蜻蜓', '螳螂', '蝙蝠', '刺猬', '松鼠', '考拉', '浣熊', '天鹅', '鸳鸯', '喜鹊'],
+      '食物': ['苹果', '香蕉', '橙子', '葡萄', '西瓜', '米饭', '面条', '面包', '蛋糕', '糖果', '牛奶', '咖啡', '茶水', '果汁', '烤肉', '火锅', '饺子', '月饼', '粽子', '汤圆', '饼干', '奶酪', '草莓', '樱桃', '芒果', '椰子', '柠檬', '荔枝', '枇杷', '猕猴'],
+      '动作': ['奔跑', '跳跃', '游泳', '飞翔', '走路', '站立', '坐下', '躺下', '哭泣', '微笑', '拥抱', '握手', '挥手', '点头', '摇头', '眨眼', '唱歌', '跳舞', '画画', '写字', '跑步', '攀爬', '滑行', '旋转', '翻滚', '敲打', '拉扯', '推搡', '抛掷', '抓取'],
+      '人物': ['老师', '医生', '警察', '护士', '律师', '工人', '农民', '商人', '学生', '朋友', '家人', '父母', '兄弟', '姐妹', '夫妻', '儿童', '爷爷', '奶奶', '叔叔', '阿姨', '士兵', '船长', '厨师', '司机', '记者', '导游', '画家', '歌手', '舞者', '作家'],
+      '颜色': ['红色', '蓝色', '绿色', '黄色', '紫色', '橙色', '粉色', '白色', '黑色', '灰色', '金色', '银色', '青色', '棕色', '深蓝', '浅绿', '墨绿', '鹅黄', '桃红', '藏青', '湖蓝', '米黄', '象牙', '琥珀', '翡翠', '珊瑚', '胭脂', '玫红', '紫罗兰'],
+      '时间': ['今天', '明天', '昨天', '早晨', '中午', '晚上', '周末', '节日', '生日', '纪念', '小时', '分钟', '清晨', '黄昏', '破晓', '午夜', '黎明', '傍晚', '拂晓', '子夜', '年初', '岁末', '平日', '假期', '春季', '夏季', '秋季', '冬季', '白昼', '夜晚'],
+      '地点': ['学校', '医院', '商店', '公园', '餐厅', '车站', '机场', '图书馆', '博物馆', '电影院', '银行', '邮局', '超市', '市场', '广场', '街道', '港口', '码头', '灯塔', '桥梁', '隧道', '城堡', '宫殿', '寺庙', '教堂', '庄园', '竹林', '花园', '池塘', '果园'],
+      '物品': ['书本', '桌子', '椅子', '电脑', '手机', '电视', '冰箱', '空调', '风扇', '台灯', '镜子', '梳子', '牙刷', '毛巾', '枕头', '被子', '钥匙', '信封', '地图', '蜡烛', '剪刀', '锤子', '钢笔', '画布', '棋盘', '风筝', '灯笼', '铃铛', '魔方', '花瓶']
+    };
+
+    // 预设配对关系（用于近义配对模式）
+    const PRESET_PAIRS = [
+      // 情感类
+      { w1: '开心', w2: '快乐', type: 'near' },
+      { w1: '开心', w2: '愉快', type: 'near' },
+      { w1: '悲伤', w2: '难过', type: 'near' },
+      { w1: '害怕', w2: '恐惧', type: 'near' },
+      { w1: '生气', w2: '愤怒', type: 'near' },
+      { w1: '满意', w2: '满足', type: 'near' },
+      // 自然类
+      { w1: '太阳', w2: '月亮', type: 'opposite' },
+      { w1: '高山', w2: '流水', type: 'near' },
+      { w1: '春天', w2: '冬天', type: 'opposite' },
+      { w1: '森林', w2: '草原', type: 'near' },
+      { w1: '天空', w2: '大地', type: 'opposite' },
+      // 动物类
+      { w1: '老虎', w2: '狮子', type: 'similar' },
+      { w1: '兔子', w2: '熊猫', type: 'similar' },
+      { w1: '鸟儿', w2: '飞翔', type: 'near' },
+      { w1: '鱼儿', w2: '游泳', type: 'near' },
+      // 食物类
+      { w1: '苹果', w2: '香蕉', type: 'similar' },
+      { w1: '米饭', w2: '面条', type: 'similar' },
+      { w1: '咖啡', w2: '茶水', type: 'similar' },
+      { w1: '蛋糕', w2: '糖果', type: 'similar' },
+      // 动作类
+      { w1: '奔跑', w2: '跳跃', type: 'near' },
+      { w1: '站立', w2: '坐下', type: 'opposite' },
+      { w1: '哭泣', w2: '微笑', type: 'opposite' },
+      { w1: '点头', w2: '摇头', type: 'opposite' },
+      // 人物类
+      { w1: '老师', w2: '学生', type: 'opposite' },
+      { w1: '医生', w2: '护士', type: 'similar' },
+      { w1: '父母', w2: '家人', type: 'near' },
+      // 颜色类
+      { w1: '红色', w2: '蓝色', type: 'opposite' },
+      { w1: '白色', w2: '黑色', type: 'opposite' },
+      // 时间类
+      { w1: '早晨', w2: '晚上', type: 'opposite' },
+      { w1: '今天', w2: '昨天', type: 'opposite' },
+      { w1: '春天', w2: '夏天', type: 'near' },
+      // 地点类
+      { w1: '学校', w2: '图书馆', type: 'near' },
+      { w1: '商店', w2: '超市', type: 'near' },
+      { w1: '公园', w2: '广场', type: 'similar' },
+      // 物品类
+      { w1: '书本', w2: '桌子', type: 'near' },
+      { w1: '电脑', w2: '手机', type: 'similar' },
+      { w1: '桌子', w2: '椅子', type: 'near' }
+    ];
+
+    // 默认数据结构
+    let appData = {
+      words: [],
+      wordGroups: [],
+      pairRelations: [],
+      learningRecords: {},
+      blacklistedWords: [],
+      blacklistedCategories: [],
+      blacklistedGroups: [],
+      totalWords: 0,
+      masteredWords: 0
+    };
+
+    // 游戏状态
+    let gameState = {
+      mode: 'split', // 'split' | 'pair'
+      difficulty: 'easy',
+      words: [],
+      cards: [],
+      selectedCards: [],
+      score: 0,
+      matchedPairs: 0,
+      totalPairs: 0,
+      timer: null,
+      seconds: 0,
+      startTime: null,
+      matchedWords: [], // 已拼出的词语列表
+      hintsRemaining: 0 // 剩余提示次数
+    };
+
+    let currentFilter = 'all';
+    let currentGroupId = null;
+    let currentCategory = null;
+    let currentWordId = null;
+
+    // ==================== 提示系统 ====================
+    function updateHintButton() {
+      const hintBtn = document.getElementById('hintBtn');
+      const hintCount = document.getElementById('hintCount');
+      hintCount.textContent = gameState.hintsRemaining;
+      
+      if (gameState.hintsRemaining <= 0) {
+        hintBtn.classList.add('disabled');
+      } else {
+        hintBtn.classList.remove('disabled');
+      }
+    }
+
+    function showHintPanel() {
+      if (gameState.hintsRemaining <= 0) {
+        showToast('提示次数已用完');
+        return;
+      }
+      document.getElementById('hintOverlay').classList.add('active');
+      document.getElementById('hintPanel').classList.add('active');
+      
+      // 更新各提示选项的剩余次数
+      const hintsLeft = gameState.hintsRemaining;
+      document.getElementById('lightHintLeft').textContent = `剩余${hintsLeft}次`;
+      document.getElementById('mediumHintLeft').textContent = `剩余${hintsLeft}次`;
+      document.getElementById('strongHintLeft').textContent = `剩余${hintsLeft}次`;
+    }
+
+    function closeHintPanel() {
+      document.getElementById('hintOverlay').classList.remove('active');
+      document.getElementById('hintPanel').classList.remove('active');
+    }
+
+    function useHint(level) {
+      if (gameState.hintsRemaining <= 0) {
+        showToast('提示次数已用完');
+        closeHintPanel();
+        return;
+      }
+      
+      // 消耗一次提示
+      gameState.hintsRemaining--;
+      updateHintButton();
+      closeHintPanel();
+      
+      // 根据级别使用对应提示
+      switch (level) {
+        case 'light':
+          giveLightHint();
+          break;
+        case 'medium':
+          giveMediumHint();
+          break;
+        case 'strong':
+          giveStrongHint();
+          break;
+      }
+    }
+
+    // 轻提示：显示一个未配对词语的分类
+    function giveLightHint() {
+      // 获取未配对的词
+      const unmatchedWords = [];
+      
+      if (gameState.mode === 'split') {
+        // 从 gameState.cards 中找出未匹配的词
+        const matchedWordIds = new Set();
+        document.querySelectorAll('.matrix-cell.matched').forEach(cell => {
+          const wordId = cell.dataset.wordId;
+          if (wordId) matchedWordIds.add(wordId);
+        });
+        
+        // 从所有词中找出未匹配的
+        gameState.words.forEach(word => {
+          if (!matchedWordIds.has(word.id)) {
+            unmatchedWords.push(word);
+          }
+        });
+      } else {
+        // 近义配对模式
+        const matchedPairIds = new Set();
+        document.querySelectorAll('.word-card.matched').forEach(card => {
+          const pairId = card.dataset.pairId;
+          if (pairId) matchedPairIds.add(pairId);
+        });
+        
+        gameState.words.forEach(pair => {
+          if (!matchedPairIds.has(pair.id)) {
+            const w1 = appData.words.find(w => w.id === pair.word1Id);
+            const w2 = appData.words.find(w => w.id === pair.word2Id);
+            if (w1) unmatchedWords.push(w1);
+            if (w2) unmatchedWords.push(w2);
+          }
+        });
+      }
+      
+      if (unmatchedWords.length === 0) {
+        showToast('已经没有未配对的词了');
+        return;
+      }
+      
+      // 随机选一个词
+      const randomWord = unmatchedWords[Math.floor(Math.random() * unmatchedWords.length)];
+      
+      // 显示分类提示
+      let hintText;
+      if (randomWord.presetCategory) {
+        hintText = `💡 有一个词属于【${randomWord.presetCategory}】类`;
+      } else if (randomWord.source === 'custom') {
+        hintText = '💡 有一个词是你自定义添加的';
+      } else {
+        hintText = '💡 有一个词在当前游戏中';
+      }
+      
+      showHintToast(hintText);
+    }
+
+    // 中提示：高亮闪烁一对配对目标
+    function giveMediumHint() {
+      // 获取未配对的词对
+      const unmatchedPairs = [];
+      
+      if (gameState.mode === 'split') {
+        // 拆字模式：找出未匹配的字卡
+        const matchedWordIds = new Set();
+        document.querySelectorAll('.matrix-cell.matched').forEach(cell => {
+          const wordId = cell.dataset.wordId;
+          if (wordId) matchedWordIds.add(wordId);
+        });
+        
+        gameState.words.forEach(word => {
+          if (!matchedWordIds.has(word.id)) {
+            unmatchedPairs.push({
+              type: 'split',
+              word: word,
+              char1: word.word[0],
+              char2: word.word[1]
+            });
+          }
+        });
+      } else {
+        // 近义配对模式
+        const matchedPairIds = new Set();
+        document.querySelectorAll('.word-card.matched').forEach(card => {
+          const pairId = card.dataset.pairId;
+          if (pairId) matchedPairIds.add(pairId);
+        });
+        
+        gameState.words.forEach(pair => {
+          if (!matchedPairIds.has(pair.id)) {
+            const w1 = appData.words.find(w => w.id === pair.word1Id);
+            const w2 = appData.words.find(w => w.id === pair.word2Id);
+            if (w1 && w2) {
+              unmatchedPairs.push({
+                type: 'pair',
+                word1: w1,
+                word2: w2
+              });
+            }
+          }
+        });
+      }
+      
+      if (unmatchedPairs.length === 0) {
+        showToast('已经没有未配对的词了');
+        return;
+      }
+      
+      // 随机选一对
+      const pair = unmatchedPairs[Math.floor(Math.random() * unmatchedPairs.length)];
+      
+      if (pair.type === 'split') {
+        // 拆字模式：找到两个字卡并闪烁
+        const cells = document.querySelectorAll('.matrix-cell');
+        const char1 = pair.char1;
+        const char2 = pair.char2;
+        
+        cells.forEach(cell => {
+          if (cell.textContent === char1 || cell.textContent === char2) {
+            cell.classList.add('hint-flash');
+            setTimeout(() => cell.classList.remove('hint-flash'), 2000);
+          }
+        });
+      } else {
+        // 近义配对模式：找到两个词卡并闪烁
+        const cards = document.querySelectorAll('.word-card');
+        cards.forEach(card => {
+          if (card.dataset.wordId === pair.word1.id || card.dataset.wordId === pair.word2.id) {
+            card.classList.add('hint-flash');
+            setTimeout(() => card.classList.remove('hint-flash'), 2000);
+          }
+        });
+      }
+    }
+
+    // 强提示：短暂显示完整词语
+    function giveStrongHint() {
+      // 获取未配对的词对
+      const unmatchedPairs = [];
+      
+      if (gameState.mode === 'split') {
+        const matchedWordIds = new Set();
+        document.querySelectorAll('.matrix-cell.matched').forEach(cell => {
+          const wordId = cell.dataset.wordId;
+          if (wordId) matchedWordIds.add(wordId);
+        });
+        
+        gameState.words.forEach(word => {
+          if (!matchedWordIds.has(word.id)) {
+            unmatchedPairs.push({
+              type: 'split',
+              word: word
+            });
+          }
+        });
+      } else {
+        const matchedPairIds = new Set();
+        document.querySelectorAll('.word-card.matched').forEach(card => {
+          const pairId = card.dataset.pairId;
+          if (pairId) matchedPairIds.add(pairId);
+        });
+        
+        gameState.words.forEach(pair => {
+          if (!matchedPairIds.has(pair.id)) {
+            const w1 = appData.words.find(w => w.id === pair.word1Id);
+            const w2 = appData.words.find(w => w.id === pair.word2Id);
+            if (w1 && w2) {
+              unmatchedPairs.push({
+                type: 'pair',
+                word1: w1,
+                word2: w2
+              });
+            }
+          }
+        });
+      }
+      
+      if (unmatchedPairs.length === 0) {
+        showToast('已经没有未配对的词了');
+        return;
+      }
+      
+      // 随机选一对
+      const pair = unmatchedPairs[Math.floor(Math.random() * unmatchedPairs.length)];
+      
+      if (pair.type === 'split') {
+        // 拆字模式：两个字卡显示完整词语
+        const cells = document.querySelectorAll('.matrix-cell');
+        const word = pair.word.word;
+        
+        cells.forEach(cell => {
+          if (cell.dataset.wordId === pair.word.id) {
+            // 保存原始文字，设置新背景
+            cell.classList.add('hint-reveal');
+            cell.dataset.originalText = cell.textContent;
+            cell.textContent = word;
+          }
+        });
+        
+        setTimeout(() => {
+          cells.forEach(cell => {
+            if (cell.dataset.wordId === pair.word.id) {
+              cell.classList.remove('hint-reveal');
+              cell.textContent = cell.dataset.originalText;
+            }
+          });
+        }, 1500);
+      } else {
+        // 近义配对模式：两个词卡显示关联类型
+        const cards = document.querySelectorAll('.word-card');
+        const relation = appData.pairRelations.find(p => 
+          (p.word1Id === pair.word1.id && p.word2Id === pair.word2.id) ||
+          (p.word1Id === pair.word2.id && p.word2Id === pair.word1.id)
+        );
+        
+        let hintText = '关联词';
+        if (relation) {
+          const typeMap = { near: '近义', opposite: '反义', similar: '同类' };
+          hintText = typeMap[relation.relation] || '关联词';
+        }
+        
+        cards.forEach(card => {
+          if (card.dataset.wordId === pair.word1.id || card.dataset.wordId === pair.word2.id) {
+            card.classList.add('hint-reveal');
+            card.dataset.originalText = card.textContent;
+            card.textContent = hintText;
+          }
+        });
+        
+        setTimeout(() => {
+          cards.forEach(card => {
+            if (card.dataset.wordId === pair.word1.id || card.dataset.wordId === pair.word2.id) {
+              card.classList.remove('hint-reveal');
+              card.textContent = card.dataset.originalText;
+            }
+          });
+        }, 1500);
+      }
+    }
+
+    // 显示提示气泡
+    function showHintToast(text) {
+      const toast = document.createElement('div');
+      toast.className = 'hint-toast';
+      toast.textContent = text;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
+
+    // ==================== 初始化 ====================
+    function init() {
+      loadData();
+      if (appData.words.length === 0) {
+        initPresetData();
+      }
+      updateHomeStats();
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('wordGameData');
+      if (saved) {
+        appData = JSON.parse(saved);
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('wordGameData', JSON.stringify(appData));
+    }
+
+    function initPresetData() {
+      // 添加预设词语到词语组
+      const presetGroup = {
+        id: 'preset_default',
+        name: '预设词库',
+        createdAt: Date.now(),
+        blacklisted: false
+      };
+      appData.wordGroups.push(presetGroup);
+
+      // 添加所有预设词语
+      Object.entries(PRESET_CATEGORIES).forEach(([category, words]) => {
+        words.forEach(word => {
+          const wordId = 'preset_' + word;
+          if (!appData.words.find(w => w.id === wordId)) {
+            appData.words.push({
+              id: wordId,
+              word: word,
+              source: 'preset',
+              groupId: 'preset_default',
+              presetCategory: category,
+              blacklisted: false,
+              createdAt: Date.now()
+            });
+          }
+        });
+      });
+
+      // 添加预设配对关系
+      PRESET_PAIRS.forEach(pair => {
+        const w1 = appData.words.find(w => w.word === pair.w1);
+        const w2 = appData.words.find(w => w.word === pair.w2);
+        if (w1 && w2) {
+          appData.pairRelations.push({
+            id: 'pair_' + pair.w1 + '_' + pair.w2,
+            word1Id: w1.id,
+            word2Id: w2.id,
+            relation: pair.type
+          });
+        }
+      });
+
+      saveData();
+    }
+
+    // ==================== 页面导航 ====================
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+    }
+
+    function goHome() {
+      updateHomeStats();
+      showPage('homePage');
+      closeAllModals();
+    }
+
+    function goBack() {
+      if (gameState.mode === 'split') {
+        showDifficulty('split');
+      } else {
+        showDifficulty('pair');
+      }
+    }
+
+    function confirmExit() {
+      if (gameState.matchedPairs > 0 && gameState.matchedPairs < gameState.totalPairs) {
+        if (confirm('游戏未完成，确定要退出吗？')) {
+          stopTimer();
+          goHome();
+        }
+      } else {
+        stopTimer();
+        goHome();
+      }
+    }
+
+    function closeAllModals() {
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
+
+    // ==================== 首页统计 ====================
+    function updateHomeStats() {
+      // 统计已学习的词（至少学习过1次）
+      let learned = 0;
+      let mastered = 0;
+      
+      appData.words.forEach(word => {
+        const record = appData.learningRecords[word.id];
+        if (record) {
+          learned++;
+          if (record.successCount >= 3) {
+            mastered++;
+          }
+        }
+      });
+
+      appData.totalWords = learned;
+      appData.masteredWords = mastered;
+      
+      document.getElementById('totalLearned').textContent = learned;
+      document.getElementById('totalMastered').textContent = mastered;
+    }
+
+    // ==================== 难度选择 ====================
+    function showDifficulty(mode) {
+      gameState.mode = mode;
+      document.getElementById('modeTag').textContent = mode === 'split' ? '拆字连连看' : '近义配对';
+      showPage('difficultyPage');
+    }
+
+    function selectDifficulty(el, diff) {
+      document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+      gameState.difficulty = diff;
+    }
+
+    // ==================== 游戏逻辑 ====================
+    function startGame() {
+      // 简单：6×6方阵=36格/2=18词，普通：8×8=64/2=32词，困难：10×10=100/2=50词
+      const wordCount = { easy: 18, medium: 32, hard: 50 }[gameState.difficulty];
+      
+      if (gameState.mode === 'split') {
+        startSplitGame(wordCount);
+      } else {
+        startPairGame(wordCount);
+      }
+    }
+
+    // 拆字模式
+    function startSplitGame(wordCount) {
+      // 初始化提示次数
+      gameState.hintsRemaining = { easy: 3, medium: 4, hard: 5 }[gameState.difficulty];
+      updateHintButton();
+
+      // 获取可用词语（未拉黑、不重复字）
+      const availableWords = getAvailableWordsForSplit(wordCount);
+      
+      if (availableWords.length < wordCount) {
+        showToast(`词库词数不足，需要${wordCount}个无重复字的词`);
+        return;
+      }
+
+      // 随机选择词语
+      const selectedWords = shuffleArray([...availableWords]).slice(0, wordCount);
+      gameState.words = selectedWords;
+
+      // 生成字卡
+      const cards = [];
+      selectedWords.forEach((word, idx) => {
+        cards.push({ id: idx * 2, char: word.word[0], wordId: word.id, word: word.word });
+        cards.push({ id: idx * 2 + 1, char: word.word[1], wordId: word.id, word: word.word });
+      });
+
+      gameState.cards = shuffleArray(cards);
+      gameState.selectedCards = [];
+      gameState.matchedPairs = 0;
+      gameState.totalPairs = wordCount;
+      gameState.score = 0;
+      gameState.seconds = 0;
+      gameState.matchedWords = []; // 已拼出的词语列表
+
+      document.getElementById('gameHint').textContent = '点击两个字拼成词语';
+      document.getElementById('gameScore').textContent = '0';
+      document.getElementById('gameTime').textContent = '0:00';
+      
+      // 清空词汇记录
+      document.getElementById('wordRecordList').innerHTML = '';
+
+      renderSplitCards();
+      showPage('gamePage');
+      startTimer();
+    }
+
+    // 获取可用于拆字游戏的词语（避字冲突）
+    function getAvailableWordsForSplit(count) {
+      const words = appData.words.filter(w => {
+        if (w.blacklisted) return false;
+        if (appData.blacklistedWords.includes(w.id)) return false;
+        if (appData.blacklistedCategories.includes(w.presetCategory)) return false;
+        return true;
+      });
+
+      // 贪心选择不重复字的词
+      const selected = [];
+      const usedChars = new Set();
+
+      for (const word of shuffleArray([...words])) {
+        const char1 = word.word[0];
+        const char2 = word.word[1];
+        
+        if (!usedChars.has(char1) && !usedChars.has(char2)) {
+          selected.push(word);
+          usedChars.add(char1);
+          usedChars.add(char2);
+          
+          if (selected.length >= count) break;
+        }
+      }
+
+      return selected;
+    }
+
+    // 近义配对模式
+    function startPairGame(wordCount) {
+      // 初始化提示次数
+      gameState.hintsRemaining = { easy: 3, medium: 4, hard: 5 }[gameState.difficulty];
+      updateHintButton();
+
+      // 获取可用配对关系
+      const availablePairs = getAvailablePairs(wordCount);
+      
+      if (availablePairs.length < wordCount) {
+        showToast(`配对关系不足，需要${wordCount}对词`);
+        return;
+      }
+
+      const selectedPairs = shuffleArray([...availablePairs]).slice(0, wordCount);
+      gameState.words = selectedPairs;
+      gameState.selectedCards = [];
+      gameState.matchedPairs = 0;
+      gameState.totalPairs = wordCount;
+      gameState.score = 0;
+      gameState.seconds = 0;
+
+      document.getElementById('gameHint').textContent = '点击两个词进行配对';
+      document.getElementById('gameScore').textContent = '0';
+      document.getElementById('gameTime').textContent = '0:00';
+
+      renderPairCards();
+      showPage('gamePage');
+      startTimer();
+    }
+
+    function getAvailablePairs(count) {
+      return appData.pairRelations.filter(pair => {
+        const w1 = appData.words.find(w => w.id === pair.word1Id);
+        const w2 = appData.words.find(w => w.id === pair.word2Id);
+        if (!w1 || !w2) return false;
+        if (w1.blacklisted || w2.blacklisted) return false;
+        if (appData.blacklistedWords.includes(w1.id) || appData.blacklistedWords.includes(w2.id)) return false;
+        return true;
+      });
+    }
+
+    // 渲染拆字卡片（矩阵布局）
+    function renderSplitCards() {
+      const grid = document.getElementById('cardGrid');
+      const matrixContainer = document.getElementById('matrixContainer');
+      const matrix = document.getElementById('gameMatrix');
+      
+      // 根据难度确定矩阵大小
+      const matrixSize = { easy: 6, medium: 8, hard: 10 }[gameState.difficulty];
+      const totalCells = matrixSize * matrixSize;
+      
+      // 隐藏旧的卡片网格，显示矩阵
+      grid.style.display = 'none';
+      matrixContainer.style.display = 'flex';
+      
+      // 设置矩阵样式
+      matrix.className = `matrix size-${matrixSize}`;
+      matrix.innerHTML = '';
+      
+      // 生成填充空位后的完整矩阵数据
+      const cells = [...gameState.cards];
+      const emptyCells = totalCells - cells.length;
+      for (let i = 0; i < emptyCells; i++) {
+        cells.push({ id: -1 - i, char: '', wordId: '', word: '', empty: true });
+      }
+      
+      // 打乱填充后的数组
+      const shuffledCells = shuffleArray(cells);
+      
+      // 创建矩阵格子
+      shuffledCells.forEach((card, idx) => {
+        const div = document.createElement('div');
+        div.className = 'matrix-cell';
+        div.textContent = card.char;
+        div.dataset.index = idx;
+        div.dataset.wordId = card.wordId || '';
+        div.dataset.word = card.word || '';
+        if (card.empty) {
+          div.style.visibility = 'hidden';
+          div.style.pointerEvents = 'none';
+        } else {
+          div.onclick = () => selectMatrixCell(idx);
+        }
+        matrix.appendChild(div);
+      });
+    }
+
+    // 选择矩阵格子（拆字模式）
+    function selectMatrixCell(index) {
+      const cells = document.querySelectorAll('.matrix-cell');
+      const el = cells[index];
+      
+      if (el.classList.contains('matched')) return;
+      if (el.classList.contains('selected')) {
+        el.classList.remove('selected');
+        gameState.selectedCards = gameState.selectedCards.filter(i => i !== index);
+        return;
+      }
+
+      gameState.selectedCards.push(index);
+      el.classList.add('selected');
+
+      if (gameState.selectedCards.length === 2) {
+        const [idx1, idx2] = gameState.selectedCards;
+        const cell1 = cells[idx1];
+        const cell2 = cells[idx2];
+        const wordId1 = cell1.dataset.wordId;
+        const wordId2 = cell2.dataset.wordId;
+        const word1 = cell1.dataset.word;
+        const word2 = cell2.dataset.word;
+
+        // 检查是否是同一词的两个字
+        if (wordId1 === wordId2 && wordId1 !== '') {
+          // 配对成功
+          setTimeout(() => {
+            cell1.classList.add('matched');
+            cell2.classList.add('matched');
+            
+            // 记录学习
+            recordLearning(wordId1);
+            
+            // 添加到词汇记录
+            addToWordRecord(word1);
+            
+            gameState.score += 10;
+            gameState.matchedPairs++;
+            document.getElementById('gameScore').textContent = gameState.score;
+            
+            checkGameWin();
+          }, 200);
+        } else {
+          // 配对失败
+          cell1.classList.add('wrong');
+          cell2.classList.add('wrong');
+          setTimeout(() => {
+            cell1.classList.remove('wrong', 'selected');
+            cell2.classList.remove('wrong', 'selected');
+          }, 400);
+          gameState.score = Math.max(0, gameState.score - 2);
+          document.getElementById('gameScore').textContent = gameState.score;
+        }
+
+        gameState.selectedCards = [];
+      }
+    }
+    
+    // 添加到词汇记录
+    function addToWordRecord(word) {
+      if (gameState.matchedWords.includes(word)) return; // 避免重复添加
+      gameState.matchedWords.push(word);
+      
+      const recordList = document.getElementById('wordRecordList');
+      const tag = document.createElement('span');
+      tag.className = 'word-tag';
+      tag.textContent = word;
+      recordList.appendChild(tag);
+    }
+
+    // 渲染近义配对卡片
+    function renderPairCards() {
+      const grid = document.getElementById('cardGrid');
+      const matrixContainer = document.getElementById('matrixContainer');
+      
+      // 隐藏矩阵，显示卡片网格（近义配对模式保持原有布局）
+      matrixContainer.style.display = 'none';
+      grid.style.display = 'grid';
+      grid.className = 'card-grid';
+      grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      grid.innerHTML = '';
+
+      const words = [];
+      gameState.words.forEach(pair => {
+        const w1 = appData.words.find(w => w.id === pair.word1Id);
+        const w2 = appData.words.find(w => w.id === pair.word2Id);
+        if (w1) words.push({ ...w1, pairId: pair.id, pairWord: w2 ? w2.word : '', pairWordId: w2 ? w2.id : '' });
+        if (w2) words.push({ ...w2, pairId: pair.id, pairWord: w1 ? w1.word : '', pairWordId: w1 ? w1.id : '' });
+      });
+
+      // 随机打乱
+      const shuffled = shuffleArray(words);
+
+      shuffled.forEach((word, idx) => {
+        const div = document.createElement('div');
+        div.className = 'word-card';
+        div.textContent = word.word;
+        div.dataset.wordId = word.id;
+        div.dataset.pairId = word.pairId;
+        div.dataset.pairWord = word.pairWord;
+        div.dataset.pairWordId = word.pairWordId;
+        div.onclick = () => selectWordCard(word.id, word.pairId, word.pairWord);
+        grid.appendChild(div);
+      });
+    }
+
+    // 选择词卡（近义模式）
+    function selectWordCard(wordId, pairId, pairWord) {
+      const cardEls = document.querySelectorAll('.word-card');
+      let selectedEl = null;
+      let selectedWordId = null;
+
+      cardEls.forEach(el => {
+        if (el.dataset.wordId === wordId && !el.classList.contains('matched')) {
+          selectedEl = el;
+          selectedWordId = wordId;
+        }
+      });
+
+      if (!selectedEl) return;
+
+      if (selectedEl.classList.contains('selected')) {
+        selectedEl.classList.remove('selected');
+        gameState.selectedCards = gameState.selectedCards.filter(c => c.wordId !== wordId);
+        return;
+      }
+
+      selectedEl.classList.add('selected');
+      gameState.selectedCards.push({ wordId, pairId, el: selectedEl });
+
+      if (gameState.selectedCards.length === 2) {
+        const [sel1, sel2] = gameState.selectedCards;
+        
+        if (sel1.pairId === sel2.pairId) {
+          // 配对成功
+          setTimeout(() => {
+            sel1.el.classList.add('matched');
+            sel2.el.classList.add('matched');
+            
+            // 记录学习
+            recordLearning(sel1.wordId);
+            recordLearning(sel2.wordId);
+            
+            // 添加到词汇记录（显示配对的两个词）
+            const word1 = appData.words.find(w => w.id === sel1.wordId);
+            const word2 = appData.words.find(w => w.id === sel2.wordId);
+            if (word1) addToWordRecord(word1.word);
+            if (word2) addToWordRecord(word2.word);
+            
+            gameState.score += 15;
+            gameState.matchedPairs++;
+            document.getElementById('gameScore').textContent = gameState.score;
+            
+            checkGameWin();
+          }, 200);
+        } else {
+          // 配对失败
+          sel1.el.classList.add('wrong');
+          sel2.el.classList.add('wrong');
+          setTimeout(() => {
+            sel1.el.classList.remove('wrong', 'selected');
+            sel2.el.classList.remove('wrong', 'selected');
+          }, 400);
+          gameState.score = Math.max(0, gameState.score - 3);
+          document.getElementById('gameScore').textContent = gameState.score;
+        }
+
+        gameState.selectedCards = [];
+      }
+    }
+
+    // 记录学习
+    function recordLearning(wordId) {
+      if (!appData.learningRecords[wordId]) {
+        appData.learningRecords[wordId] = {
+          wordId: wordId,
+          successCount: 0,
+          firstSuccessAt: Date.now(),
+          lastSuccessAt: Date.now()
+        };
+      }
+      appData.learningRecords[wordId].successCount++;
+      appData.learningRecords[wordId].lastSuccessAt = Date.now();
+      saveData();
+    }
+
+    // 检查游戏胜利
+    function checkGameWin() {
+      if (gameState.matchedPairs >= gameState.totalPairs) {
+        stopTimer();
+        showWinModal();
+      }
+    }
+
+    // 计时器
+    function startTimer() {
+      gameState.startTime = Date.now();
+      gameState.timer = setInterval(() => {
+        gameState.seconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+        const mins = Math.floor(gameState.seconds / 60);
+        const secs = gameState.seconds % 60;
+        document.getElementById('gameTime').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (gameState.timer) {
+        clearInterval(gameState.timer);
+        gameState.timer = null;
+      }
+    }
+
+    function restartGame() {
+      stopTimer();
+      if (gameState.mode === 'split') {
+        startSplitGame(gameState.words.length);
+      } else {
+        startPairGame(gameState.words.length);
+      }
+    }
+
+    function playAgain() {
+      closeAllModals();
+      restartGame();
+    }
+
+    // 胜利弹窗
+    function showWinModal() {
+      document.getElementById('winTime').textContent = document.getElementById('gameTime').textContent;
+      document.getElementById('winScore').textContent = gameState.score;
+      document.getElementById('winModal').classList.add('active');
+    }
+
+    // ==================== 词库管理 ====================
+    function showWordManage() {
+      closeAllModals();
+      showPage('wordManagePage');
+      switchTab('myWords');
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tab + 'Tab').classList.add('active');
+
+      if (tab === 'myWords') renderMyWordGroups();
+      if (tab === 'presetWords') renderPresetCategories();
+      if (tab === 'blacklist') renderBlacklist();
+    }
+
+    function renderMyWordGroups() {
+      const container = document.getElementById('myWordGroups');
+      const empty = document.getElementById('emptyMyWords');
+      
+      const groups = appData.wordGroups.filter(g => 
+        !g.blacklisted && g.id !== 'preset_default'
+      );
+
+      if (groups.length === 0) {
+        container.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      container.innerHTML = groups.map(group => {
+        const wordCount = appData.words.filter(w => w.groupId === group.id && !w.blacklisted).length;
+        const date = new Date(group.createdAt).toLocaleDateString();
+        return `
+          <div class="group-card" onclick="showGroupDetail('${group.id}')">
+            <div class="group-info">
+              <h4>${group.name}</h4>
+              <p>${wordCount}个词语 · ${date}</p>
+            </div>
+            <div class="action-btns">
+              <button class="action-btn btn-edit" onclick="event.stopPropagation();renameGroup('${group.id}')">✏️</button>
+              <button class="action-btn btn-delete" onclick="event.stopPropagation();confirmBlacklistGroup('${group.id}')">🚫</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderPresetCategories() {
+      const container = document.getElementById('presetCategories');
+      container.innerHTML = Object.entries(PRESET_CATEGORIES).map(([cat, words]) => {
+        const isBlacklisted = appData.blacklistedCategories.includes(cat);
+        return `
+          <div class="group-card" onclick="showCategoryDetail('${cat}')" style="${isBlacklisted ? 'opacity:0.5' : ''}">
+            <div class="group-info">
+              <h4>${cat}</h4>
+              <p>${words.length}个词语 ${isBlacklisted ? '（已拉黑）' : ''}</p>
+            </div>
+            <span>→</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderBlacklist() {
+      const container = document.getElementById('blacklistItems');
+      const empty = document.getElementById('emptyBlacklist');
+      
+      const items = [];
+
+      // 拉黑的词
+      appData.blacklistedWords.forEach(wordId => {
+        const word = appData.words.find(w => w.id === wordId);
+        if (word) {
+          items.push({
+            type: 'word',
+            id: wordId,
+            text: word.word,
+            category: word.presetCategory
+          });
+        }
+      });
+
+      // 拉黑的分类
+      appData.blacklistedCategories.forEach(cat => {
+        items.push({
+          type: 'category',
+          id: cat,
+          text: cat,
+          category: '分类'
+        });
+      });
+
+      // 拉黑的词组
+      appData.blacklistedGroups.forEach(groupId => {
+        const group = appData.wordGroups.find(g => g.id === groupId);
+        if (group) {
+          items.push({
+            type: 'group',
+            id: groupId,
+            text: group.name,
+            category: '词组'
+          });
+        }
+      });
+
+      if (items.length === 0) {
+        container.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      container.innerHTML = items.map(item => `
+        <div class="word-item">
+          <div>
+            <span>${item.text}</span>
+            <div class="category-tag">${item.category}</div>
+          </div>
+          <button class="action-btn btn-restore" onclick="restoreItem('${item.type}', '${item.id}')">↩️</button>
+        </div>
+      `).join('');
+    }
+
+    // 添加词
+    let addMode = 'quick'; // 'quick' | 'full'
+
+    function switchAddMode(mode) {
+      addMode = mode;
+      const quickBtn = document.getElementById('addModeQuick');
+      const fullBtn = document.getElementById('addModeFull');
+      const quickSection = document.getElementById('quickAddSection');
+      const fullSection = document.getElementById('fullAddSection');
+
+      if (mode === 'quick') {
+        quickBtn.style.background = 'var(--primary)';
+        quickBtn.style.color = 'white';
+        fullBtn.style.background = 'transparent';
+        fullBtn.style.color = 'var(--text-light)';
+        quickSection.style.display = 'block';
+        fullSection.style.display = 'none';
+      } else {
+        fullBtn.style.background = 'var(--secondary)';
+        fullBtn.style.color = 'white';
+        quickBtn.style.background = 'transparent';
+        quickBtn.style.color = 'var(--text-light)';
+        quickSection.style.display = 'none';
+        fullSection.style.display = 'block';
+      }
+    }
+
+    function showAddWordModal() {
+      document.getElementById('newWordInput').value = '';
+      document.getElementById('relatedWordInput').value = '';
+      document.getElementById('relationType').value = 'near';
+      document.getElementById('batchWordInput').value = '';
+      switchAddMode('quick');
+      document.getElementById('addWordModal').classList.add('active');
+    }
+
+    function closeAddWordModal() {
+      document.getElementById('addWordModal').classList.remove('active');
+    }
+
+    function addWord() {
+      // 创建或获取词组
+      const today = new Date().toLocaleDateString();
+      let group = appData.wordGroups.find(g => g.name === today + ' 新词组');
+      if (!group) {
+        group = {
+          id: 'group_' + Date.now(),
+          name: today + ' 新词组',
+          createdAt: Date.now(),
+          blacklisted: false
+        };
+        appData.wordGroups.push(group);
+      }
+
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      if (addMode === 'quick') {
+        // 快速添加模式：支持单个词 + 批量输入
+        const singleWord = document.getElementById('newWordInput').value.trim();
+        const batchText = document.getElementById('batchWordInput').value.trim();
+        
+        // 收集所有要添加的词
+        const wordsToAdd = [];
+        if (singleWord && singleWord.length === 2) {
+          wordsToAdd.push(singleWord);
+        }
+        if (batchText) {
+          batchText.split('\n').forEach(line => {
+            const w = line.trim();
+            if (w && w.length === 2) {
+              wordsToAdd.push(w);
+            }
+          });
+        }
+
+        if (wordsToAdd.length === 0) {
+          showToast('请输入至少一个两字词');
+          return;
+        }
+
+        // 去重
+        const uniqueWords = [...new Set(wordsToAdd)];
+
+        uniqueWords.forEach(word => {
+          if (appData.words.find(w => w.word === word)) {
+            skippedCount++;
+            return;
+          }
+          const wordId = 'custom_' + word + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+          appData.words.push({
+            id: wordId,
+            word: word,
+            source: 'custom',
+            groupId: group.id,
+            presetCategory: null,
+            blacklisted: false,
+            createdAt: Date.now()
+          });
+          addedCount++;
+        });
+
+      } else {
+        // 完整添加模式：单个词 + 关联词
+        const word = document.getElementById('newWordInput').value.trim();
+        const relatedWord = document.getElementById('relatedWordInput').value.trim();
+        const relation = document.getElementById('relationType').value;
+
+        if (!word) {
+          showToast('请输入词语');
+          return;
+        }
+
+        if (word.length !== 2) {
+          showToast('请输入两字词');
+          return;
+        }
+
+        if (appData.words.find(w => w.word === word)) {
+          showToast('该词已存在');
+          return;
+        }
+
+        const wordId = 'custom_' + word + '_' + Date.now();
+        appData.words.push({
+          id: wordId,
+          word: word,
+          source: 'custom',
+          groupId: group.id,
+          presetCategory: null,
+          blacklisted: false,
+          createdAt: Date.now()
+        });
+        addedCount++;
+
+        // 添加配对关系
+        if (relatedWord && relatedWord.length === 2) {
+          let relWord = appData.words.find(w => w.word === relatedWord);
+          if (!relWord) {
+            relWord = {
+              id: 'custom_' + relatedWord + '_' + Date.now(),
+              word: relatedWord,
+              source: 'custom',
+              groupId: group.id,
+              presetCategory: null,
+              blacklisted: false,
+              createdAt: Date.now()
+            };
+            appData.words.push(relWord);
+          }
+
+          appData.pairRelations.push({
+            id: 'pair_' + wordId + '_' + relWord.id,
+            word1Id: wordId,
+            word2Id: relWord.id,
+            relation: relation
+          });
+        }
+      }
+
+      saveData();
+      closeAddWordModal();
+      
+      if (addMode === 'quick') {
+        const msg = skippedCount > 0 
+          ? `添加成功 ${addedCount} 个词，跳过 ${skippedCount} 个重复词`
+          : `添加成功 ${addedCount} 个词`;
+        showToast(msg);
+      } else {
+        showToast('添加成功');
+      }
+      renderMyWordGroups();
+    }
+
+    // 词组操作
+    function showGroupDetail(groupId) {
+      currentGroupId = groupId;
+      const group = appData.wordGroups.find(g => g.id === groupId);
+      if (!group) return;
+
+      document.getElementById('groupTitle').textContent = group.name;
+      showPage('groupDetailPage');
+      renderGroupWords();
+    }
+
+    function renderGroupWords() {
+      const container = document.getElementById('groupWords');
+      const words = appData.words.filter(w => w.groupId === currentGroupId);
+
+      if (words.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>词组为空</p></div>';
+        return;
+      }
+
+      container.innerHTML = words.map(word => `
+        <div class="word-item" onclick="showWordDetail('${word.id}', 'group')">
+          <span>${word.word}</span>
+          <div class="action-btns">
+            <button class="action-btn btn-delete" onclick="event.stopPropagation();deleteWord('${word.id}')">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renameGroup(groupId) {
+      const group = appData.wordGroups.find(g => g.id === groupId);
+      if (!group) return;
+      
+      const newName = prompt('请输入新的词组名称：', group.name);
+      if (newName && newName.trim()) {
+        group.name = newName.trim();
+        saveData();
+        renderMyWordGroups();
+        if (currentGroupId === groupId) {
+          document.getElementById('groupTitle').textContent = group.name;
+        }
+      }
+    }
+
+    function confirmBlacklistGroup(groupId) {
+      if (confirm('确定要拉黑整个词组吗？')) {
+        appData.blacklistedGroups.push(groupId);
+        saveData();
+        showToast('已拉黑词组');
+        renderMyWordGroups();
+      }
+    }
+
+    function deleteGroup() {
+      if (!currentGroupId) return;
+      if (confirm('确定要删除整个词组吗？')) {
+        // 删除词组下的所有词
+        appData.words = appData.words.filter(w => w.groupId !== currentGroupId);
+        // 删除词组
+        appData.wordGroups = appData.wordGroups.filter(g => g.id !== currentGroupId);
+        saveData();
+        showToast('已删除词组');
+        showWordManage();
+      }
+    }
+
+    function deleteWord(wordId) {
+      if (confirm('确定要删除这个词吗？')) {
+        appData.words = appData.words.filter(w => w.id !== wordId);
+        appData.pairRelations = appData.pairRelations.filter(p => 
+          p.word1Id !== wordId && p.word2Id !== wordId
+        );
+        delete appData.learningRecords[wordId];
+        saveData();
+        showToast('已删除');
+        renderGroupWords();
+      }
+    }
+
+    // 分类详情
+    function showCategoryDetail(category) {
+      currentCategory = category;
+      document.getElementById('categoryTitle').textContent = category + ' 词库';
+      showPage('categoryDetailPage');
+      renderCategoryWords();
+    }
+
+    function renderCategoryWords() {
+      const container = document.getElementById('categoryWords');
+      const words = appData.words.filter(w => w.presetCategory === currentCategory);
+
+      container.innerHTML = words.map(word => `
+        <div class="word-item" onclick="showWordDetail('${word.id}', 'category')">
+          <span>${word.word}</span>
+          <span>→</span>
+        </div>
+      `).join('');
+    }
+
+    function blacklistCategory() {
+      if (!currentCategory) return;
+      if (confirm(`确定要拉黑"${currentCategory}"分类吗？`)) {
+        if (!appData.blacklistedCategories.includes(currentCategory)) {
+          appData.blacklistedCategories.push(currentCategory);
+          saveData();
+          showToast('已拉黑分类');
+          showWordManage();
+        } else {
+          showToast('该分类已被拉黑');
+        }
+      }
+    }
+
+    // 恢复拉黑项
+    function restoreItem(type, id) {
+      if (type === 'word') {
+        appData.blacklistedWords = appData.blacklistedWords.filter(w => w !== id);
+      } else if (type === 'category') {
+        appData.blacklistedCategories = appData.blacklistedCategories.filter(c => c !== id);
+      } else if (type === 'group') {
+        appData.blacklistedGroups = appData.blacklistedGroups.filter(g => g !== id);
+      }
+      saveData();
+      showToast('已恢复');
+      renderBlacklist();
+    }
+
+    // ==================== 词语详情 ====================
+    function showWordDetail(wordId, backTo) {
+      currentWordId = wordId;
+      const word = appData.words.find(w => w.id === wordId);
+      if (!word) return;
+
+      document.getElementById('detailWordText').textContent = word.word;
+      
+      // 掌握状态
+      const record = appData.learningRecords[wordId];
+      let statusHtml = '';
+      if (record && record.successCount >= 3) {
+        statusHtml = '<span class="status-badge mastered">✅ 已掌握</span>';
+      } else if (record && record.successCount >= 1) {
+        statusHtml = '<span class="status-badge learning">🔵 学习中</span>';
+      } else {
+        statusHtml = '<span class="status-badge new">⚪ 未学</span>';
+      }
+      if (record) {
+        statusHtml += `<div style="margin-top:8px;font-size:0.85rem;color:var(--text-light)">配对成功 ${record.successCount} 次</div>`;
+      }
+      document.getElementById('detailStatus').innerHTML = statusHtml;
+
+      // 关联词
+      const relations = appData.pairRelations.filter(p => 
+        p.word1Id === wordId || p.word2Id === wordId
+      );
+      let relationsHtml = '';
+      relations.forEach(rel => {
+        const otherId = rel.word1Id === wordId ? rel.word2Id : rel.word1Id;
+        const otherWord = appData.words.find(w => w.id === otherId);
+        if (otherWord) {
+          const typeLabel = rel.relation === 'near' ? '近义' : (rel.relation === 'opposite' ? '反义' : '同类');
+          const typeClass = rel.relation === 'near' ? 'near' : (rel.relation === 'opposite' ? 'opposite' : 'similar');
+          relationsHtml += `<span class="relation-tag ${typeClass}">${otherWord.word}（${typeLabel}）</span>`;
+        }
+      });
+      if (!relationsHtml) {
+        relationsHtml = '<span style="color:var(--text-light)">暂无关联词</span>';
+      }
+      document.getElementById('detailRelations').innerHTML = relationsHtml;
+
+      // 拉黑按钮
+      const isBlacklisted = appData.blacklistedWords.includes(wordId);
+      document.getElementById('blacklistWordBtn').textContent = isBlacklisted ? '取消拉黑' : '加入拉黑';
+      document.getElementById('blacklistWordBtn').onclick = () => toggleBlacklistWord();
+
+      // 返回按钮
+      document.getElementById('wordDetailBack').onclick = () => {
+        if (backTo === 'group') {
+          showGroupDetail(currentGroupId);
+        } else if (backTo === 'category') {
+          showCategoryDetail(currentCategory);
+        } else {
+          showWordBook();
+        }
+      };
+
+      showPage('wordDetailPage');
+    }
+
+    function toggleBlacklistWord() {
+      if (!currentWordId) return;
+      
+      const idx = appData.blacklistedWords.indexOf(currentWordId);
+      if (idx >= 0) {
+        appData.blacklistedWords.splice(idx, 1);
+        showToast('已取消拉黑');
+      } else {
+        appData.blacklistedWords.push(currentWordId);
+        showToast('已加入拉黑');
+      }
+      saveData();
+      
+      const isBlacklisted = appData.blacklistedWords.includes(currentWordId);
+      document.getElementById('blacklistWordBtn').textContent = isBlacklisted ? '取消拉黑' : '加入拉黑';
+    }
+
+    // ==================== 记词册 ====================
+    function showWordBook() {
+      closeAllModals();
+      showPage('wordBookPage');
+      filterWords('all');
+    }
+
+    function filterWords(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const container = document.getElementById('wordRecords');
+      let words = [...appData.words];
+
+      if (filter === 'mastered') {
+        words = words.filter(w => {
+          const record = appData.learningRecords[w.id];
+          return record && record.successCount >= 3;
+        });
+      } else if (filter === 'learning') {
+        words = words.filter(w => {
+          const record = appData.learningRecords[w.id];
+          return record && record.successCount >= 1 && record.successCount < 3;
+        });
+      } else if (filter === 'new') {
+        words = words.filter(w => !appData.learningRecords[w.id]);
+      }
+
+      if (words.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>暂无记录</p></div>';
+        return;
+      }
+
+      container.innerHTML = words.map(word => {
+        const record = appData.learningRecords[word.id];
+        let statusClass = 'new';
+        let statusText = '未学';
+        if (record) {
+          if (record.successCount >= 3) {
+            statusClass = 'mastered';
+            statusText = '已掌握';
+          } else if (record.successCount >= 1) {
+            statusClass = 'learning';
+            statusText = '学习中';
+          }
+        }
+        return `
+          <div class="record-card" onclick="showWordDetail('${word.id}', 'book')">
+            <div>
+              <div class="record-word">${word.word}</div>
+              ${record ? `<div class="record-count">成功 ${record.successCount} 次</div>` : ''}
+            </div>
+            <div class="record-status">
+              <span class="status-badge ${statusClass}">${statusText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function startReview() {
+      // 从"学习中"的词优先出题
+      const learningWords = appData.words.filter(w => {
+        const record = appData.learningRecords[w.id];
+        return record && record.successCount >= 1 && record.successCount < 3;
+      });
+
+      if (learningWords.length < 2) {
+        // 如果学习中的词不足，随机选词
+        const available = appData.words.filter(w => !appData.blacklistedWords.includes(w.id));
+        if (available.length < 4) {
+          showToast('词库词数不足');
+          return;
+        }
+        gameState.mode = 'split';
+        gameState.matchedWords = [];
+        document.getElementById('wordRecordList').innerHTML = '';
+        startSplitGame(4);
+      } else {
+        gameState.mode = 'split';
+        const selected = shuffleArray(learningWords).slice(0, Math.min(4, learningWords.length));
+        const extraNeeded = 4 - selected.length;
+        
+        const extra = appData.words.filter(w => 
+          !appData.blacklistedWords.includes(w.id) && 
+          !selected.find(s => s.id === w.id)
+        );
+        
+        const allWords = [...selected, ...shuffleArray(extra).slice(0, extraNeeded)];
+        gameState.words = allWords;
+
+        const cards = [];
+        allWords.forEach((word, idx) => {
+          cards.push({ id: idx * 2, char: word.word[0], wordId: word.id, word: word.word });
+          cards.push({ id: idx * 2 + 1, char: word.word[1], wordId: word.id, word: word.word });
+        });
+
+        gameState.cards = shuffleArray(cards);
+        gameState.selectedCards = [];
+        gameState.matchedPairs = 0;
+        gameState.totalPairs = allWords.length;
+        gameState.score = 0;
+        gameState.seconds = 0;
+        gameState.difficulty = 'easy';
+        gameState.matchedWords = [];
+
+        document.getElementById('gameHint').textContent = '🧠 复习模式 - 点击两个字拼成词语';
+        document.getElementById('gameScore').textContent = '0';
+        document.getElementById('gameTime').textContent = '0:00';
+        document.getElementById('wordRecordList').innerHTML = '';
+
+        renderSplitCards();
+        showPage('gamePage');
+        startTimer();
+      }
+    }
+
+    // ==================== 工具函数 ====================
+    function shuffleArray(arr) {
+      const newArr = [...arr];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    // 初始化
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冒险HTML - 进阶版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #080810;
+    font-family: 'Courier New', 'PingFang SC', monospace;
+    color: #c8c8d8;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #game {
+    width: 740px;
+    min-height: 600px;
+    background: #0e0e1e;
+    border-radius: 12px;
+    box-shadow: 0 8px 50px rgba(0,0,0,0.8);
+    overflow: hidden;
+    border: 2px solid #1a1a3a;
+    position: relative;
+  }
+  #topBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: #0a0a18;
+    border-bottom: 1px solid #1a1a3a;
+  }
+  #topBar .bar-left, #topBar .bar-right { display: flex; gap: 8px; align-items: center; }
+  .top-btn {
+    background: rgba(124,77,255,0.1);
+    border: 1px solid #3a3a6a;
+    color: #b388ff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .top-btn:hover { background: rgba(124,77,255,0.25); }
+  #sceneArt {
+    width: 100%;
+    height: 190px;
+    background: #0a0a18;
+    position: relative;
+    overflow: hidden;
+  }
+  #sceneArt canvas { width: 100%; height: 100%; }
+  #statusBar {
+    position: absolute;
+    top: 8px; left: 12px; right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+  }
+  .stat-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,0,0,0.6);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+  .hp-track { width: 80px; height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; border: 1px solid #333; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg, #e53935, #ff7043); width: 100%; transition: width 0.5s; border-radius: 4px; }
+  .item-slot {
+    width: 22px; height: 22px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #333;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .item-slot.has-item { border-color: #7c4dff; background: rgba(124,77,255,0.15); }
+  #sceneTitle {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 8px 18px;
+    background: linear-gradient(transparent, rgba(14,14,30,0.95));
+    font-size: 16px;
+    color: #e0e0ff;
+    font-weight: bold;
+    letter-spacing: 2px;
+    z-index: 2;
+  }
+  #content { padding: 18px 22px; min-height: 180px; }
+  #storyText {
+    font-size: 13px;
+    line-height: 1.9;
+    color: #b0b0c8;
+    min-height: 80px;
+    white-space: pre-wrap;
+  }
+  #storyText .cursor {
+    display: inline-block; width: 7px; height: 14px;
+    background: #7c4dff; animation: blink 0.8s infinite;
+    vertical-align: text-bottom; margin-left: 2px;
+  }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  #choices { padding: 10px 22px 20px; display: flex; flex-direction: column; gap: 7px; }
+  .choice-btn {
+    background: rgba(124,77,255,0.06);
+    border: 1px solid #3a3a6a;
+    color: #c0b0e0;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    line-height: 1.5;
+  }
+  .choice-btn:hover { background: rgba(124,77,255,0.18); border-color: #7c4dff; color: #e0d0ff; transform: translateX(3px); }
+  .choice-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  .choice-btn .cn { color: #7c4dff; font-weight: bold; margin-right: 6px; }
+  .choice-btn.item-req { border-color: #ff9800; }
+  .choice-btn.item-req .cn { color: #ff9800; }
+
+  /* 战斗界面 */
+  #battleOverlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 20;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  #battleOverlay.show { display: flex; }
+  .battle-scene { text-align: center; margin-bottom: 20px; }
+  .enemy-name { font-size: 16px; color: #ef9a9a; margin-bottom: 8px; }
+  .enemy-hp-bar { width: 200px; height: 12px; background: #1a1a2e; border-radius: 6px; overflow: hidden; margin: 0 auto 4px; border: 1px solid #333; }
+  .enemy-hp-fill { height: 100%; background: #e53935; transition: width 0.3s; border-radius: 6px; }
+  .enemy-hp-text { font-size: 10px; color: #888; }
+  .battle-log { font-size: 11px; color: #888; margin: 10px 0; min-height: 40px; max-height: 60px; overflow-y: auto; text-align: center; line-height: 1.6; }
+  .battle-actions { display: flex; gap: 8px; }
+  .btl-btn {
+    background: rgba(124,77,255,0.15);
+    border: 1px solid #7c4dff;
+    color: #c0b0e0;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .btl-btn:hover { background: rgba(124,77,255,0.35); }
+  .btl-btn.atk { border-color: #ef5350; color: #ef9a9a; }
+  .btl-btn.atk:hover { background: rgba(239,83,80,0.3); }
+  .btl-btn.def { border-color: #42a5f5; color: #90caf9; }
+  .btl-btn.def:hover { background: rgba(66,165,245,0.3); }
+  .btl-btn.flee { border-color: #888; color: #aaa; }
+  .btl-btn.flee:hover { background: rgba(136,136,136,0.3); }
+
+  #ending {
+    display: none;
+    text-align: center;
+    padding: 40px 22px;
+  }
+  #ending.show { display: block; }
+  #ending h2 { font-size: 26px; margin-bottom: 12px; }
+  #ending p { color: #888; font-size: 12px; line-height: 1.8; margin-bottom: 18px; }
+  .restart-btn {
+    background: #7c4dff; border: none; color: #fff;
+    padding: 11px 30px; border-radius: 8px; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+  }
+  .restart-btn:hover { background: #9c7cff; }
+  #notify {
+    position: absolute;
+    top: 40%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 18px; font-weight: bold;
+    opacity: 0; pointer-events: none; z-index: 25;
+    transition: opacity 0.3s;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="topBar">
+    <div class="bar-left">
+      <button class="top-btn" onclick="saveGame()">💾 存档</button>
+      <button class="top-btn" onclick="loadGame()">📂 读档</button>
+    </div>
+    <div class="bar-right">
+      <span style="font-size:10px;color:#555" id="sceneId">场景 0</span>
+    </div>
+  </div>
+  <div id="sceneArt">
+    <canvas id="artCanvas" width="740" height="190"></canvas>
+    <div id="statusBar">
+      <div class="stat-group">
+        <span style="font-size:12px">❤️</span>
+        <div class="hp-track"><div class="hp-fill" id="hpFill"></div></div>
+        <span style="font-size:10px;color:#ef9a9a" id="hpText">100</span>
+      </div>
+      <div class="stat-group" id="itemSlots"></div>
+    </div>
+    <div id="sceneTitle">神秘古堡探险</div>
+  </div>
+  <div id="content"><div id="storyText"></div></div>
+  <div id="choices"></div>
+  <div id="battleOverlay">
+    <div class="battle-scene">
+      <div class="enemy-name" id="enemyName"></div>
+      <div class="enemy-hp-bar"><div class="enemy-hp-fill" id="enemyHpFill"></div></div>
+      <div class="enemy-hp-text" id="enemyHpText"></div>
+    </div>
+    <div class="battle-log" id="battleLog"></div>
+    <div class="battle-actions">
+      <button class="btl-btn atk" onclick="battleAction('attack')">⚔️ 攻击</button>
+      <button class="btl-btn def" onclick="battleAction('defend')">🛡️ 防御</button>
+      <button class="btl-btn flee" onclick="battleAction('flee')">🏃 逃跑</button>
+    </div>
+  </div>
+  <div id="notify"></div>
+  <div id="ending">
+    <h2 id="endTitle"></h2>
+    <p id="endDesc"></p>
+    <button class="restart-btn" onclick="restartGame()">重新冒险</button>
+  </div>
+</div>
+
+<script>
+// ============ 游戏状态 ============
+let state = {
+  hp: 100, maxHp: 100,
+  atk: 10, def: 5,
+  items: [], // 最多3个: ['钥匙','银匕首','药水']
+  scene: 'start',
+  visited: {}
+};
+
+let typing = false;
+let battleState = null; // { enemy, enemyHp, enemyMaxHp, defending, log }
+
+// ============ 物品定义 ============
+const ITEMS = {
+  '钥匙': { icon: '🔑', desc: '打开上锁的门' },
+  '银匕首': { icon: '🗡️', desc: '对黑暗生物伤害翻倍', battleBoost: true },
+  '药水': { icon: '🧪', desc: '恢复30点生命', healAmount: 30 }
+};
+
+// ============ 敌人定义 ============
+const ENEMIES = {
+  ghost: { name: '游魂', hp: 30, atk: 8, xp: '灵魂低语', silverWeak: true },
+  shadow: { name: '暗影兽', hp: 45, atk: 12, xp: '一声低吼', silverWeak: true },
+  guardian: { name: '石像守卫', hp: 60, atk: 15, xp: '轰然倒地', silverWeak: false }
+};
+
+// ============ 场景 ============
+const SCENES = {
+  start: {
+    title: '古堡大门', art: 'gate',
+    text: '你站在一座古老而阴森的古堡前。月光穿过乌云，照亮了斑驳的石墙和锈迹斑斑的铁门。门微微敞开，右侧通向荒废花园，门旁有一块松动的石砖...',
+    choices: [
+      { text: '推开铁门进入大厅', next: 'hall' },
+      { text: '走向右侧花园', next: 'garden' },
+      { text: '检查松动的石砖', next: 'loose_stone' }
+    ]
+  },
+  loose_stone: {
+    title: '石砖之后', art: 'stone',
+    text: '你推开石砖，发现一把生锈的钥匙和一张纸条："三楼西侧，暗门之后，真相所在。"',
+    onEnter: () => { addItem('钥匙'); },
+    choices: [
+      { text: '带钥匙进入大厅', next: 'hall_key' },
+      { text: '先去花园看看', next: 'garden' }
+    ]
+  },
+  garden: {
+    title: '荒废花园', art: 'garden',
+    text: '花园杂草丛生，枯藤爬满残破喷泉。旁有一口古井，远处小径通向侧门。喷泉底部似乎有东西闪烁...',
+    choices: [
+      { text: '走近古井', next: 'well' },
+      { text: '检查喷泉', next: 'fountain' },
+      { text: '走侧门进入古堡', next: 'hall' }
+    ]
+  },
+  well: {
+    title: '古井', art: 'well', battle: 'ghost',
+    text: '你靠近古井，刺骨寒风涌出。突然，一个苍白的游魂从井中飘出！它发出凄厉的哀号，向你扑来！',
+    choices: [
+      { text: '应战游魂！', next: 'well_after', action: 'battle' },
+      { text: '逃向花园', next: 'garden' }
+    ]
+  },
+  well_after: {
+    title: '古井（已清空）', art: 'well',
+    text: '游魂消散后，井沿上留下了一枚蓝色灵魂宝石，散发着温暖的光芒。你感到力量恢复了些许。',
+    onEnter: () => { state.hp = Math.min(state.maxHp, state.hp + 20); updateUI(); },
+    choices: [
+      { text: '去喷泉看看', next: 'fountain' },
+      { text: '进入古堡', next: 'hall' }
+    ]
+  },
+  fountain: {
+    title: '干涸喷泉', art: 'garden',
+    text: '喷泉底部积满落叶，你在碎砾间发现一瓶深红色药水，瓶身刻着古老花纹。这看起来是一瓶治疗药水。',
+    choices: [
+      { text: '喝下药水', next: 'fountain_drink' },
+      { text: '收起药水备用', next: 'fountain_take' },
+      { text: '不碰它，进入古堡', next: 'hall' }
+    ]
+  },
+  fountain_drink: {
+    title: '药水效果', art: 'garden',
+    text: '药水入喉，温暖的力量在体内蔓延！你的伤口愈合了，精神为之一振。',
+    onEnter: () => { state.hp = Math.min(state.maxHp, state.hp + 35); updateUI(); },
+    choices: [{ text: '进入古堡', next: 'hall' }]
+  },
+  fountain_take: {
+    title: '收起药水', art: 'garden',
+    text: '你小心地把药水收入怀中，以备不时之需。这种东西关键时刻能救命。',
+    onEnter: () => { addItem('药水'); },
+    choices: [{ text: '进入古堡', next: 'hall' }]
+  },
+  hall: {
+    title: '古堡大厅', art: 'hall',
+    text: '大厅宏伟而阴森，水晶灯早已熄灭，月光从破碎的窗户洒入。正前方是巨大楼梯，左侧是幽暗走廊，墙上有一幅油画...',
+    choices: [
+      { text: '沿楼梯上二楼', next: 'stairs' },
+      { text: '走进左侧走廊', next: 'corridor' },
+      { text: '查看油画', next: 'painting' }
+    ]
+  },
+  hall_key: {
+    title: '古堡大厅', art: 'hall',
+    text: '你带着钥匙进入大厅。钥匙微微发热，似乎对楼上有什么感应。大厅宏伟阴森，多条路可选...',
+    choices: [
+      { text: '跟随钥匙感应上楼', next: 'stairs_key' },
+      { text: '探索左侧走廊', next: 'corridor' },
+      { text: '查看油画', next: 'painting' }
+    ]
+  },
+  painting: {
+    title: '诡异油画', art: 'painting', hpChange: -15,
+    text: '油画中是一位黑袍贵族，他的眼睛真的在动！画中人开口了："寻找真相？三楼西侧...但须付出代价。" 一股阴寒之力袭来！',
+    choices: [
+      { text: '承受攻击，继续对话', next: 'painting_talk' },
+      { text: '逃离上楼', next: 'stairs' }
+    ]
+  },
+  painting_talk: {
+    title: '画中人的忠告', art: 'painting',
+    text: '"你有勇气...带上这枚银币，它能保护你。" 一枚银币从画框掉落。你捡起它，感到温暖的力量。',
+    onEnter: () => { state.hp = Math.min(state.maxHp, state.hp + 10); updateUI(); },
+    choices: [{ text: '感谢画中人，上楼去', next: 'stairs_key' }]
+  },
+  corridor: {
+    title: '幽暗走廊', art: 'corridor',
+    text: '走廊几乎伸手不见五指。远处传来水声和脚步声...走廊尽头分岔：左边有微弱的光，右边是一扇上锁的门。',
+    choices: [
+      { text: '走向有光的方向', next: 'light_room' },
+      { text: '尝试打开上锁的门', next: 'locked_door' },
+      { text: '返回大厅', next: 'hall' }
+    ]
+  },
+  locked_door: {
+    title: '上锁的门', art: 'corridor',
+    text: '门上有一个古老的锁孔。你需要一把钥匙才能打开这扇门...',
+    choices: [
+      { text: '用钥匙开门', next: 'secret_passage', itemReq: '钥匙' },
+      { text: '返回走廊', next: 'corridor' },
+      { text: '去有光的房间', next: 'light_room' }
+    ]
+  },
+  secret_passage: {
+    title: '秘密通道', art: 'passage',
+    text: '钥匙完美插入锁孔！门后是一条向下的通道，尽头地窖中堆满古旧箱子。你在一个箱子里发现了银质匕首！这将是对抗黑暗的利器。',
+    onEnter: () => { addItem('银匕首'); },
+    choices: [{ text: '带上匕首上楼', next: 'stairs_key' }]
+  },
+  light_room: {
+    title: '烛光房间', art: 'room',
+    text: '一根蜡烛独自燃烧，桌上放着一本日记，最后一页写着："三楼暗门后有古堡主人...银器可以克制黑暗。" 旁边放着一把银质匕首。',
+    choices: [
+      { text: '拿走银质匕首', next: 'take_dagger' },
+      { text: '返回走廊', next: 'corridor' }
+    ]
+  },
+  take_dagger: {
+    title: '银质匕首', art: 'room',
+    text: '你拿起匕首，寒意从指尖传来。银白色的光芒在烛光下闪烁——这是对抗黑暗的有力武器。',
+    onEnter: () => { addItem('银匕首'); },
+    choices: [
+      { text: '返回大厅上楼', next: 'stairs_key' },
+      { text: '去走廊试那扇门', next: 'locked_door' }
+    ]
+  },
+  stairs: {
+    title: '古堡楼梯', art: 'stairs',
+    text: '你沿楼梯向上，每一步都伴随着木板嘎吱声。二楼环形走廊通向多个房间，更上方是三楼...',
+    choices: [
+      { text: '进入二楼东翼', next: 'east_wing' },
+      { text: '继续上三楼', next: 'third_floor' }
+    ]
+  },
+  stairs_key: {
+    title: '古堡楼梯', art: 'stairs',
+    text: '你沿楼梯向上，信物微微发光为你照亮前路。低沉的吟唱声中，三楼就在眼前...',
+    choices: [
+      { text: '探索二楼东翼', next: 'east_wing' },
+      { text: '直上三楼', next: 'third_floor_key' }
+    ]
+  },
+  east_wing: {
+    title: '东翼卧室', art: 'bedroom',
+    text: '卧室布满蜘蛛网。梳妆台上的铜镜映出一段影像——一个女子被困在黑暗中，她伸手指向右边的墙壁...',
+    choices: [
+      { text: '记住画面，上三楼', next: 'third_floor' },
+      { text: '仔细观察铜镜', next: 'mirror_detail' }
+    ]
+  },
+  mirror_detail: {
+    title: '镜中启示', art: 'bedroom',
+    text: '镜中女子用口型说："三楼...暗门...银器..." 银器是对抗古堡主人最重要的武器。你的决心更加坚定了。',
+    onEnter: () => { state.hp = Math.min(state.maxHp, state.hp + 10); updateUI(); },
+    choices: [{ text: '带着启示上三楼', next: 'third_floor_key' }]
+  },
+  third_floor: {
+    title: '三楼走廊', art: 'corridor3', battle: 'shadow',
+    text: '三楼更加阴暗，压迫感极强。走廊尽头有铁门，西侧墙壁有细微裂纹。突然，一团暗影从角落窜出——是暗影兽！',
+    choices: [
+      { text: '迎战暗影兽！', next: 'third_floor_after', action: 'battle' },
+      { text: '逃回楼梯', next: 'stairs' }
+    ]
+  },
+  third_floor_key: {
+    title: '三楼走廊', art: 'corridor3',
+    text: '三楼压迫感强烈，但你的信物发出温暖的光芒。走廊尽头是铁门，西侧墙壁有裂纹——那里一定有暗门！',
+    choices: [
+      { text: '寻找暗门', next: 'hidden_door' },
+      { text: '先试试铁门', next: 'iron_door' }
+    ]
+  },
+  third_floor_after: {
+    title: '三楼走廊', art: 'corridor3',
+    text: '暗影兽消散后，走廊安静下来。你注意到西侧墙壁的裂纹——那一定就是暗门！',
+    choices: [
+      { text: '推开暗门', next: 'hidden_door' },
+      { text: '先查看铁门', next: 'iron_door' }
+    ]
+  },
+  iron_door: {
+    title: '铁门之后', art: 'boss', battle: 'guardian',
+    text: '铁门推开了！门后是充满黑雾的房间，一个石像守卫突然复活挡在面前！你必须击败它才能前进！',
+    choices: [
+      { text: '与石像守卫战斗！', next: 'iron_door_after', action: 'battle' }
+    ]
+  },
+  iron_door_after: {
+    title: '铁门深处', art: 'boss',
+    text: '石像守卫碎裂倒塌，但房间深处传来古堡主人的笑声。你没有找到暗门就贸然闯入——黑暗之力开始侵蚀你的意志！',
+    hpChange: -40,
+    choices: [{ text: '勉强继续前进', next: 'bad_ending' }]
+  },
+  hidden_door: {
+    title: '暗门发现！', art: 'secret',
+    text: '你在墙壁裂纹处摸索，整面墙无声移开！密室中充满幽蓝光芒，水晶囚笼中关着一位半透明的女子灵魂。\n\n"摧毁祭坛，我就能自由！" 祭坛在房间中央，散发着黑暗的能量。你有银器，也许能成功...',
+    choices: [
+      { text: '用银匕首摧毁祭坛', next: 'good_ending', itemReq: '银匕首' },
+      { text: '尝试直接摧毁祭坛', next: 'neutral_ending' },
+      { text: '先与灵魂对话', next: 'neutral_ending' }
+    ]
+  },
+  good_ending: {
+    title: '🎉 完美结局：解放', art: 'ending_good',
+    text: '银匕首刺入祭坛！黑色的能量如潮涌出，但你身上的银器形成屏障。你奋力一击——祭坛碎裂！古堡主人的惨叫回荡，黑雾消散。女子灵魂获得自由："感谢你，勇敢的冒险者。古堡的诅咒结束了。" 阳光从窗外洒入，一切阴暗消散殆尽。',
+    ending: true, endType: 'good'
+  },
+  neutral_ending: {
+    title: '⚖️ 中庸结局：真相', art: 'ending_neutral',
+    text: '你决定让灵魂与古堡主人对话，用真诚唤醒他残存的人性。黑雾渐渐退去，古堡主人恢复了人形，跪地痛哭。诅咒虽未完全解除，但不再有人受害。这是一个不完美但充满希望的结局。',
+    ending: true, endType: 'neutral'
+  },
+  bad_ending: {
+    title: '💀 坏结局：吞噬', art: 'ending_bad',
+    text: '黑暗之力轻易吞噬了你的意志。你感到意识在消散，取而代之的是无尽的黑暗和冰冷...古堡又多了一个幽灵。你的冒险，到此为止。也许下次，你应该更仔细地探索，收集银器...',
+    ending: true, endType: 'bad'
+  }
+};
+
+// ============ 物品系统 ============
+function addItem(name) {
+  if (state.items.length < 3 && !state.items.includes(name)) {
+    state.items.push(name);
+    showNotify(`获得物品：${ITEMS[name].icon} ${name}`, '#4caf50');
+    updateUI();
+  } else if (state.items.includes(name)) {
+    showNotify(`你已经有了 ${name}`, '#ffca28');
+  } else {
+    showNotify('物品栏已满！', '#ef5350');
+  }
+}
+
+function hasItem(name) {
+  return state.items.includes(name);
+}
+
+function removeItem(name) {
+  const idx = state.items.indexOf(name);
+  if (idx >= 0) { state.items.splice(idx, 1); updateUI(); }
+}
+
+function usePotion() {
+  if (!hasItem('药水')) return false;
+  removeItem('药水');
+  state.hp = Math.min(state.maxHp, state.hp + 30);
+  showNotify('使用药水，恢复30HP！', '#4caf50');
+  updateUI();
+  return true;
+}
+
+// ============ 战斗系统 ============
+function startBattle(enemyId, winScene) {
+  const e = ENEMIES[enemyId];
+  battleState = {
+    enemy: { ...e, id: enemyId },
+    enemyHp: e.hp,
+    enemyMaxHp: e.hp,
+    defending: false,
+    log: `${e.name}出现了！`,
+    winScene: winScene
+  };
+  updateBattleUI();
+  document.getElementById('battleOverlay').classList.add('show');
+}
+
+function battleAction(action) {
+  if (!battleState) return;
+  const bs = battleState;
+  const e = bs.enemy;
+  const hasSilver = hasItem('银匕首');
+  let log = '';
+
+  if (action === 'flee') {
+    if (Math.random() < 0.5) {
+      log = '你成功逃跑了！';
+      bs.log = log;
+      endBattle(false);
+      return;
+    } else {
+      log = '逃跑失败！';
+      const dmg = Math.max(1, e.atk - state.def);
+      state.hp -= dmg;
+      log += ` ${e.name}追击造成${dmg}点伤害！`;
+    }
+  } else if (action === 'attack') {
+    let dmg = state.atk + Math.floor(Math.random() * 5);
+    if (hasSilver && e.silverWeak) { dmg *= 2; log = '银器克制！'; }
+    bs.enemyHp -= dmg;
+    log += `你造成${dmg}点伤害！`;
+    // 敌人反击
+    if (bs.enemyHp > 0) {
+      const eDmg = Math.max(1, e.atk - state.def);
+      state.hp -= eDmg;
+      log += ` ${e.name}反击造成${eDmg}点伤害！`;
+    }
+    bs.defending = false;
+  } else if (action === 'defend') {
+    bs.defending = true;
+    const eDmg = Math.max(1, Math.floor((e.atk - state.def * 2) / 2));
+    state.hp -= eDmg;
+    log = `你防御了！仅受${eDmg}点伤害。`;
+  }
+
+  // 使用药水按钮（战斗中）
+  bs.log = log;
+  updateUI();
+  updateBattleUI();
+
+  // 检查结果
+  if (bs.enemyHp <= 0) {
+    bs.log += ` ${e.name}${e.xp}！`;
+    updateBattleUI();
+    setTimeout(() => endBattle(true), 800);
+    return;
+  }
+  if (state.hp <= 0) {
+    setTimeout(() => {
+      endBattle(false);
+      showEnding('💀 体力耗尽', '你倒在了古堡冰冷的石板上...', 'bad');
+    }, 600);
+  }
+}
+
+function endBattle(won) {
+  document.getElementById('battleOverlay').classList.remove('show');
+  if (won && battleState && battleState.winScene) {
+    showScene(battleState.winScene);
+  }
+  battleState = null;
+  updateUI();
+}
+
+function updateBattleUI() {
+  if (!battleState) return;
+  const bs = battleState;
+  document.getElementById('enemyName').textContent = bs.enemy.name;
+  const pct = Math.max(0, bs.enemyHp / bs.enemyMaxHp * 100);
+  document.getElementById('enemyHpFill').style.width = pct + '%';
+  document.getElementById('enemyHpText').textContent = `${Math.max(0,bs.enemyHp)}/${bs.enemyMaxHp}`;
+  document.getElementById('battleLog').textContent = bs.log;
+}
+
+// ============ 存档系统 ============
+function saveGame() {
+  const saveData = {
+    hp: state.hp, maxHp: state.maxHp,
+    atk: state.atk, def: state.def,
+    items: [...state.items],
+    scene: currentScene,
+    timestamp: Date.now()
+  };
+  localStorage.setItem('castle_adventure_save', JSON.stringify(saveData));
+  showNotify('💾 存档成功！', '#4caf50');
+}
+
+function loadGame() {
+  const data = localStorage.getItem('castle_adventure_save');
+  if (!data) { showNotify('没有找到存档', '#ef5350'); return; }
+  const save = JSON.parse(data);
+  state.hp = save.hp;
+  state.maxHp = save.maxHp;
+  state.atk = save.atk;
+  state.def = save.def;
+  state.items = save.items || [];
+  currentScene = save.scene;
+  updateUI();
+  showScene(currentScene);
+  showNotify('📂 读档成功！', '#4dd0e1');
+}
+
+// ============ 通知 ============
+function showNotify(text, color) {
+  const el = document.getElementById('notify');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.textShadow = `0 0 15px ${color}`;
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 1500);
+}
+
+// ============ UI更新 ============
+function updateUI() {
+  const pct = Math.max(0, state.hp / state.maxHp * 100);
+  document.getElementById('hpFill').style.width = pct + '%';
+  document.getElementById('hpText').textContent = Math.max(0, state.hp);
+
+  // 物品栏
+  const slots = document.getElementById('itemSlots');
+  slots.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const div = document.createElement('div');
+    div.className = 'item-slot' + (state.items[i] ? ' has-item' : '');
+    if (state.items[i]) {
+      div.textContent = ITEMS[state.items[i]].icon;
+      div.title = state.items[i];
+      // 药水可点击使用
+      if (state.items[i] === '药水') {
+        div.style.cursor = 'pointer';
+        div.addEventListener('click', usePotion);
+      }
+    }
+    slots.appendChild(div);
+  }
+
+  document.getElementById('sceneId').textContent = `场景 ${currentScene}`;
+}
+
+// ============ 像素画 ============
+function drawScene(artId) {
+  const cvs = document.getElementById('artCanvas');
+  const c = cvs.getContext('2d');
+  c.clearRect(0, 0, 740, 190);
+  const grad = c.createLinearGradient(0,0,0,190);
+  grad.addColorStop(0, '#080818');
+  grad.addColorStop(1, '#12122a');
+  c.fillStyle = grad;
+  c.fillRect(0, 0, 740, 190);
+
+  // 星
+  c.fillStyle = '#fff';
+  for (let i = 0; i < 25; i++) {
+    c.fillRect((i*97+artId.length*37)%740, (i*53+artId.length*13)%100, 1.5, 1.5);
+  }
+  // 月
+  c.beginPath(); c.arc(620, 30, 18, 0, Math.PI*2);
+  c.fillStyle = '#e8e8cc'; c.shadowColor = '#e8e8cc'; c.shadowBlur = 18; c.fill(); c.shadowBlur = 0;
+
+  switch(artId) {
+    case 'gate':
+      c.fillStyle = '#1a1a2e';
+      c.fillRect(200, 55, 340, 135);
+      c.fillRect(180, 35, 60, 155);
+      c.fillRect(500, 35, 60, 155);
+      c.fillRect(310, 15, 120, 60);
+      c.fillStyle = '#2a1a1a'; c.fillRect(340, 115, 60, 75);
+      c.fillStyle = '#4a3a6a'; c.fillRect(220, 85, 28, 28); c.fillRect(490, 85, 28, 28);
+      break;
+    case 'stone':
+      c.fillStyle = '#2a2a3a'; c.fillRect(330, 100, 80, 50);
+      c.fillStyle = '#0d0d1a'; c.fillRect(345, 110, 50, 30);
+      c.fillStyle = '#ffcc00'; c.fillRect(355, 118, 10, 5); c.fillRect(370, 118, 10, 5);
+      break;
+    case 'garden':
+      c.fillStyle = '#0a1a0a'; c.fillRect(0, 110, 740, 80);
+      c.fillStyle = '#3a3a4a'; c.fillRect(320, 90, 100, 18); c.fillRect(345, 70, 50, 38);
+      c.fillStyle = '#2a2a2a'; c.beginPath(); c.arc(160, 130, 22, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#0a0a0a'; c.beginPath(); c.arc(160, 130, 15, 0, Math.PI*2); c.fill();
+      break;
+    case 'well':
+      c.fillStyle = '#1a1a2a'; c.fillRect(280, 75, 180, 115);
+      c.fillStyle = '#0a0a1a'; c.beginPath(); c.arc(370, 120, 35, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.arc(370, 120, 20, 0, Math.PI*2);
+      c.fillStyle = 'rgba(100,100,255,0.3)'; c.fill();
+      break;
+    case 'hall':
+      c.fillStyle = '#1a1a30'; c.fillRect(80, 35, 580, 155);
+      c.fillStyle = '#2a2a5a';
+      for (let i = 0; i < 4; i++) c.fillRect(150+i*120, 55, 38, 45);
+      c.fillStyle = '#252540';
+      for (let i = 0; i < 5; i++) c.fillRect(320, 150-i*18, 100, 13);
+      break;
+    case 'corridor': case 'corridor3':
+      c.fillStyle = '#1a1a2a'; c.fillRect(50, 25, 640, 155);
+      c.fillStyle = '#0d0d1e'; c.fillRect(80, 45, 580, 115);
+      c.fillStyle = '#8a5a00'; c.fillRect(160, 55, 5, 28); c.fillRect(560, 55, 5, 28);
+      c.fillStyle = '#ff8800';
+      c.beginPath(); c.arc(163, 50, 7, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.arc(563, 50, 7, 0, Math.PI*2); c.fill();
+      break;
+    case 'room': case 'bedroom':
+      c.fillStyle = '#1e1e30'; c.fillRect(50, 35, 640, 155);
+      c.fillStyle = '#2a1a1a'; c.fillRect(260, 75, 220, 115);
+      break;
+    case 'painting':
+      c.fillStyle = '#1e1e30'; c.fillRect(50, 35, 640, 155);
+      c.fillStyle = '#3a2a1a'; c.fillRect(290, 45, 160, 115);
+      c.strokeStyle = '#6a5a2a'; c.lineWidth = 3; c.strokeRect(290, 45, 160, 115);
+      break;
+    case 'stairs':
+      for (let i = 0; i < 8; i++) {
+        c.fillStyle = i%2===0?'#1a1a30':'#15152a';
+        c.fillRect(200+i*40, 170-i*14, 45, 18+i*14);
+      }
+      break;
+    case 'passage':
+      c.fillStyle = '#1a1a1a'; c.fillRect(250, 60, 240, 130);
+      c.fillStyle = '#2a2a2a'; c.fillRect(260, 70, 220, 110);
+      break;
+    case 'boss':
+      c.fillStyle = '#0a0a0a'; c.fillRect(0, 0, 740, 190);
+      c.beginPath(); c.arc(370, 95, 35, 0, Math.PI*2);
+      c.fillStyle = '#2a0a2a'; c.fill();
+      c.fillStyle = '#ff0000'; c.fillRect(358, 88, 7, 5); c.fillRect(375, 88, 7, 5);
+      break;
+    case 'secret':
+      c.fillStyle = '#0a0a1e'; c.fillRect(0, 0, 740, 190);
+      c.beginPath(); c.arc(370, 95, 28, 0, Math.PI*2);
+      c.fillStyle = 'rgba(100,150,255,0.4)'; c.shadowColor = '#4488ff'; c.shadowBlur = 25; c.fill(); c.shadowBlur = 0;
+      break;
+    case 'ending_good':
+      const sg = c.createRadialGradient(370, 45, 10, 370, 45, 90);
+      sg.addColorStop(0, '#ffeb3b'); sg.addColorStop(1, 'rgba(255,235,59,0)');
+      c.fillStyle = sg; c.fillRect(0, 0, 740, 190);
+      c.fillStyle = '#4caf50'; c.fillRect(0, 130, 740, 60);
+      break;
+    case 'ending_neutral':
+      c.fillStyle = '#1a1a2e'; c.fillRect(0, 0, 740, 190);
+      c.fillStyle = '#2a2a4a'; c.fillRect(0, 120, 740, 70);
+      break;
+    case 'ending_bad':
+      c.fillStyle = '#050505'; c.fillRect(0, 0, 740, 190);
+      c.fillStyle = '#1a0a0a'; c.fillRect(0, 120, 740, 70);
+      break;
+    default:
+      c.fillStyle = '#1a1a2e'; c.fillRect(260, 45, 220, 135);
+  }
+}
+
+// ============ 打字机 ============
+let currentTypingTimeout = null;
+function typeText(text, cb) {
+  if (currentTypingTimeout) clearTimeout(currentTypingTimeout);
+  const el = document.getElementById('storyText');
+  el.innerHTML = '';
+  typing = true;
+  let i = 0;
+  function typeChar() {
+    if (i < text.length) {
+      el.innerHTML += text[i] === '\n' ? '<br>' : text[i];
+      i++;
+      el.querySelectorAll('.cursor').forEach(c => c.remove());
+      el.innerHTML += '<span class="cursor"></span>';
+      currentTypingTimeout = setTimeout(typeChar, 25);
+    } else {
+      el.querySelectorAll('.cursor').forEach(c => c.remove());
+      typing = false;
+      if (cb) cb();
+    }
+  }
+  typeChar();
+}
+
+// ============ 场景逻辑 ============
+let currentScene = 'start';
+
+function showScene(sceneId) {
+  currentScene = sceneId;
+  const scene = SCENES[sceneId];
+  if (!scene) return;
+
+  // onEnter 回调
+  if (scene.onEnter) scene.onEnter();
+
+  // hp变化
+  if (scene.hpChange) {
+    state.hp = Math.max(0, Math.min(state.maxHp, state.hp + scene.hpChange));
+  }
+
+  updateUI();
+
+  if (state.hp <= 0 && !scene.ending) {
+    showEnding('💀 体力耗尽', '你倒在了古堡冰冷的石板上...', 'bad');
+    return;
+  }
+
+  document.getElementById('sceneTitle').textContent = scene.title;
+  drawScene(scene.art || sceneId);
+  document.getElementById('ending').classList.remove('show');
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('choices').style.display = 'flex';
+  document.getElementById('choices').innerHTML = '';
+
+  typeText(scene.text, () => { showChoices(scene); });
+}
+
+function showChoices(scene) {
+  const div = document.getElementById('choices');
+  div.innerHTML = '';
+
+  if (scene.ending) {
+    setTimeout(() => showEnding(scene.title, scene.text, scene.endType), 800);
+    return;
+  }
+
+  scene.choices.forEach((ch, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    const hasReq = !ch.itemReq || hasItem(ch.itemReq);
+    btn.disabled = !hasReq;
+    if (ch.itemReq) btn.classList.add('item-req');
+    btn.innerHTML = `<span class="cn">${i+1}.</span>${ch.text}${!hasReq ? ` (需要${ch.itemReq})` : ''}`;
+    btn.addEventListener('click', () => {
+      if (typing) return;
+      if (ch.action === 'battle' && scene.battle) {
+        startBattle(scene.battle, ch.next);
+      } else {
+        showScene(ch.next);
+      }
+    });
+    div.appendChild(btn);
+  });
+}
+
+function showEnding(title, desc, type) {
+  document.getElementById('content').style.display = 'none';
+  document.getElementById('choices').style.display = 'none';
+  const ending = document.getElementById('ending');
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endTitle').style.color = type==='good'?'#4caf50':(type==='neutral'?'#ffca28':'#e53935');
+  document.getElementById('endDesc').textContent = desc;
+  ending.classList.add('show');
+  drawScene('ending_' + type);
+}
+
+function restartGame() {
+  state = { hp: 100, maxHp: 100, atk: 10, def: 5, items: [], scene: 'start', visited: {} };
+  currentScene = 'start';
+  battleState = null;
+  document.getElementById('battleOverlay').classList.remove('show');
+  document.getElementById('ending').classList.remove('show');
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('choices').style.display = 'flex';
+  updateUI();
+  showScene('start');
+}
+
+// ============ 启动 ============
+updateUI();
+showScene('start');
+</script>
+</body>
+</html>

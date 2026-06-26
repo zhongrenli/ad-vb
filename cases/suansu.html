@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>算术速算游戏-进阶版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        .container {
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #2d3a5a;
+            color: #fff;
+        }
+        .btn-secondary:hover {
+            background: #3d4a6a;
+        }
+        .difficulty-section {
+            margin: 20px 0;
+        }
+        .difficulty-section h3 {
+            margin-bottom: 15px;
+            color: #a0a0c0;
+        }
+        .difficulty-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .diff-btn {
+            padding: 10px 20px;
+            border: 2px solid #3d4a6a;
+            background: transparent;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        .diff-btn:hover, .diff-btn.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+        }
+        .stat {
+            font-size: 1.1em;
+        }
+        .score {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .combo-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(102, 126, 234, 0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 1.1em;
+        }
+        .combo-count {
+            color: #f4a460;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        .multiplier {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: #2d3a5a;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        .question-area {
+            position: relative;
+            min-height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .question {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 30px 0;
+            color: #fff;
+        }
+        .waiting-spinner {
+            display: none;
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .waiting-spinner.active {
+            display: block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .option-btn {
+            padding: 20px;
+            font-size: 1.5em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #2d3a5a;
+            color: #fff;
+            font-family: inherit;
+        }
+        .option-btn:hover {
+            transform: scale(1.05);
+            background: #3d4a6a;
+        }
+        @keyframes correct-flash {
+            0%, 100% { background: #2d3a5a; }
+            50% { background: #4caf50; transform: scale(1.1); }
+        }
+        @keyframes wrong-shake {
+            0%, 100% { transform: translateX(0); background: #2d3a5a; }
+            20% { transform: translateX(-10px); background: #f44336; }
+            40% { transform: translateX(10px); background: #f44336; }
+            60% { transform: translateX(-10px); background: #f44336; }
+            80% { transform: translateX(10px); background: #f44336; }
+        }
+        .correct {
+            animation: correct-flash 0.35s ease-in-out;
+        }
+        .wrong {
+            animation: wrong-shake 0.4s ease-in-out;
+        }
+        .new-record {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3em;
+            color: #f4a460;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(244, 164, 96, 0.8);
+            animation: bounce 0.6s ease infinite;
+            z-index: 100;
+            display: none;
+        }
+        .new-record.active {
+            display: block;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -60%) scale(1.1); }
+        }
+        .result-card {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .result-title {
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            color: #667eea;
+        }
+        .result-stats {
+            margin: 20px 0;
+        }
+        .result-stat {
+            font-size: 1.2em;
+            margin: 15px 0;
+            color: #a0a0c0;
+        }
+        .result-stat span {
+            color: #fff;
+            font-weight: bold;
+        }
+        .high-score {
+            color: #f4a460 !important;
+        }
+        .buttons-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .keyboard-hint {
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .keyboard-hint kbd {
+            background: #2d3a5a;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin: 0 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="new-record" id="new-record">新纪录!</div>
+    <div class="container">
+        <div id="start-screen" class="screen active">
+            <div class="card">
+                <h1>算术速算游戏-进阶版</h1>
+                <div class="difficulty-section">
+                    <h3>选择难度</h3>
+                    <div class="difficulty-btns">
+                        <button class="diff-btn selected" data-difficulty="easy">简单</button>
+                        <button class="diff-btn" data-difficulty="medium">中等</button>
+                        <button class="diff-btn" data-difficulty="hard">困难</button>
+                    </div>
+                </div>
+                <div class="mode-buttons">
+                    <button class="btn btn-primary" id="timed-mode">限时挑战</button>
+                    <button class="btn btn-secondary" id="free-mode">自由练习</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div class="card" style="position:relative;">
+                <div class="combo-display">
+                    <div>连击: <span class="combo-count" id="combo-count">0</span></div>
+                    <div class="multiplier" id="multiplier">×1.0</div>
+                </div>
+                <div class="top-bar">
+                    <div class="stat">题号: <span id="question-num">1</span></div>
+                    <div class="stat">得分: <span id="score" class="score">0</span></div>
+                </div>
+                <div class="progress-container" id="progress-container" style="display:none;">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <div class="question-area">
+                    <div class="waiting-spinner" id="spinner"></div>
+                    <div class="question" id="question">1 + 1 = ?</div>
+                </div>
+                <div class="options" id="options">
+                    <button class="option-btn">2</button>
+                    <button class="option-btn">3</button>
+                    <button class="option-btn">4</button>
+                    <button class="option-btn">5</button>
+                </div>
+                <div class="keyboard-hint">
+                    按 <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> 选择 <kbd>Enter</kbd> 下一题
+                </div>
+            </div>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <div class="result-card">
+                <div class="result-title" id="result-title">挑战结束</div>
+                <div class="result-stats">
+                    <div class="result-stat">总题数: <span id="total-questions">0</span></div>
+                    <div class="result-stat">正确数: <span id="correct-answers">0</span></div>
+                    <div class="result-stat">正确率: <span id="accuracy">0%</span></div>
+                    <div class="result-stat">用时: <span id="time-used">0</span>秒</div>
+                    <div class="result-stat">最高连击: <span id="max-combo">0</span></div>
+                    <div class="result-stat">平均用时: <span id="avg-time">0</span>秒/题</div>
+                    <div class="result-stat" id="high-score-line">历史最高: <span id="high-score">0</span>分</div>
+                </div>
+                <div class="buttons-row">
+                    <button class="btn btn-primary" id="restart-btn">再来一局</button>
+                    <button class="btn btn-secondary" id="back-btn">返回</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDifficulty = "easy";
+        let gameMode = "";
+        let questionNum = 0;
+        let score = 0;
+        let correctCount = 0;
+        let totalAnswered = 0;
+        let startTime = 0;
+        let timerInterval = null;
+        let timeLeft = 60;
+        let isAnswering = false;
+        let consecutiveCorrect = 0;
+        let consecutiveWrong = 0;
+        let maxCombo = 0;
+        let combo = 0;
+        let targetCorrect = 10;
+        let dynamicRange = 0;
+        let currentQuestion = null;
+
+        const diffBtns = document.querySelectorAll(".diff-btn");
+        const timedModeBtn = document.getElementById("timed-mode");
+        const freeModeBtn = document.getElementById("free-mode");
+        const restartBtn = document.getElementById("restart-btn");
+        const backBtn = document.getElementById("back-btn");
+        const optionsContainer = document.getElementById("options");
+        const questionEl = document.getElementById("question");
+        const spinner = document.getElementById("spinner");
+        const questionNumEl = document.getElementById("question-num");
+        const scoreEl = document.getElementById("score");
+        const comboCountEl = document.getElementById("combo-count");
+        const multiplierEl = document.getElementById("multiplier");
+        const progressContainer = document.getElementById("progress-container");
+        const progressBar = document.getElementById("progress-bar");
+        const newRecordEl = document.getElementById("new-record");
+
+        diffBtns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                diffBtns.forEach(b => b.classList.remove("selected"));
+                btn.classList.add("selected");
+                currentDifficulty = btn.dataset.difficulty;
+            });
+        });
+
+        function showScreen(screenId) {
+            document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+            document.getElementById(screenId).classList.add("active");
+        }
+
+        function getMultiplier() {
+            if (combo >= 10) return 3;
+            if (combo >= 5) return 2;
+            if (combo >= 3) return 1.5;
+            return 1;
+        }
+
+        function updateComboDisplay() {
+            comboCountEl.textContent = combo;
+            const mult = getMultiplier();
+            multiplierEl.textContent = "×" + mult.toFixed(1);
+            
+            if (combo >= 10) {
+                multiplierEl.style.color = "#ff5722";
+            } else if (combo >= 5) {
+                multiplierEl.style.color = "#f4a460";
+            } else if (combo >= 3) {
+                multiplierEl.style.color = "#4caf50";
+            } else {
+                multiplierEl.style.color = "#fff";
+            }
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            questionNum = 0;
+            score = 0;
+            correctCount = 0;
+            totalAnswered = 0;
+            combo = 0;
+            maxCombo = 0;
+            consecutiveCorrect = 0;
+            consecutiveWrong = 0;
+            dynamicRange = 0;
+            isAnswering = false;
+            startTime = Date.now();
+            newRecordEl.classList.remove("active");
+            
+            if (mode === "timed") {
+                timeLeft = 60;
+                progressContainer.style.display = "block";
+                progressBar.style.width = "100%";
+                progressBar.style.background = "linear-gradient(90deg, #667eea, #764ba2)";
+                timerInterval = setInterval(updateTimer, 100);
+            } else {
+                progressContainer.style.display = "none";
+                targetCorrect = 10;
+            }
+            
+            updateStats();
+            updateComboDisplay();
+            showScreen("game-screen");
+            nextQuestion();
+        }
+
+        function updateTimer() {
+            timeLeft -= 0.1;
+            const percent = (timeLeft / 60) * 100;
+            progressBar.style.width = percent + "%";
+            
+            if (timeLeft <= 10) {
+                progressBar.style.background = "linear-gradient(90deg, #f44336, #ff5722)";
+            }
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                endGame();
+            }
+        }
+
+        function generateQuestion() {
+            let num1, num2, num3, answer, display;
+            let rangeBonus = dynamicRange;
+            
+            if (currentDifficulty === "easy") {
+                let maxNum = 20 + rangeBonus * 5;
+                num1 = randInt(1, maxNum);
+                num2 = randInt(1, maxNum);
+                const isAdd = Math.random() > 0.5;
+                if (isAdd) {
+                    answer = num1 + num2;
+                    display = num1 + " + " + num2 + " = ?";
+                } else {
+                    if (num2 > num1) [num1, num2] = [num2, num1];
+                    answer = num1 - num2;
+                    display = num1 + " - " + num2 + " = ?";
+                }
+            } else if (currentDifficulty === "medium") {
+                let maxNum = 50 + rangeBonus * 10;
+                num1 = randInt(10, maxNum);
+                num2 = randInt(10, maxNum);
+                const op = Math.floor(Math.random() * 3);
+                if (op === 0) {
+                    answer = num1 + num2;
+                    display = num1 + " + " + num2 + " = ?";
+                } else if (op === 1) {
+                    if (num2 > num1) [num1, num2] = [num2, num1];
+                    answer = num1 - num2;
+                    display = num1 + " - " + num2 + " = ?";
+                } else {
+                    num1 = randInt(2, 12 + Math.floor(rangeBonus / 2));
+                    num2 = randInt(2, 12 + Math.floor(rangeBonus / 2));
+                    answer = num1 * num2;
+                    display = num1 + " × " + num2 + " = ?";
+                }
+            } else {
+                let maxNum = 30 + rangeBonus * 5;
+                num1 = randInt(10, maxNum);
+                num2 = randInt(2, 10 + Math.floor(rangeBonus / 2));
+                num3 = randInt(2, 10 + Math.floor(rangeBonus / 2));
+                const pattern = Math.floor(Math.random() * 4);
+                
+                if (pattern === 0) {
+                    answer = num1 + num2 * num3;
+                    display = num1 + " + " + num2 + " × " + num3 + " = ?";
+                } else if (pattern === 1) {
+                    answer = (num1 + num2) * num3;
+                    display = "(" + num1 + " + " + num2 + ") × " + num3 + " = ?";
+                } else if (pattern === 2) {
+                    answer = num1 * num2 + num1 * num3;
+                    display = num1 + " × " + num2 + " + " + num1 + " × " + num3 + " = ?";
+                } else {
+                    num1 = num2 * num3 * randInt(1, 3 + rangeBonus);
+                    answer = num1 / num2;
+                    display = num1 + " ÷ " + num2 + " = ?";
+                }
+            }
+            
+            return { display, answer };
+        }
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function generateOptions(correctAnswer) {
+            const options = [correctAnswer];
+            const offsets = [];
+            
+            while (offsets.length < 3) {
+                let offset;
+                const range = Math.max(10, Math.abs(correctAnswer) * 0.5);
+                offset = Math.floor(Math.random() * range) + 1;
+                if (Math.random() > 0.5) offset = -offset;
+                
+                const newVal = correctAnswer + offset;
+                if (newVal > 0 && !offsets.includes(offset) && !options.includes(newVal)) {
+                    offsets.push(offset);
+                    options.push(newVal);
+                }
+            }
+            
+            for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+            }
+            
+            return options;
+        }
+
+        function nextQuestion() {
+            if (gameMode === "free" && combo >= targetCorrect) {
+                showEncouragement();
+                return;
+            }
+            
+            if (gameMode === "free" && totalAnswered >= targetCorrect) {
+                endGame();
+                return;
+            }
+            
+            questionNum++;
+            isAnswering = false;
+            
+            const q = generateQuestion();
+            currentQuestion = q;
+            questionEl.textContent = q.display;
+            questionEl.style.display = "block";
+            spinner.classList.remove("active");
+            
+            const options = generateOptions(q.answer);
+            optionsContainer.innerHTML = "";
+            
+            options.forEach((opt, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.textContent = opt;
+                btn.dataset.index = index + 1;
+                btn.dataset.value = opt;
+                btn.dataset.correct = opt === q.answer;
+                btn.addEventListener("click", () => handleAnswer(btn, opt === q.answer));
+                optionsContainer.appendChild(btn);
+            });
+            
+            updateStats();
+        }
+
+        function handleAnswer(btn, isCorrect) {
+            if (isAnswering) return;
+            isAnswering = true;
+            
+            if (isCorrect) {
+                btn.classList.add("correct");
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                consecutiveCorrect++;
+                consecutiveWrong = 0;
+                
+                if (consecutiveCorrect >= 5) {
+                    consecutiveCorrect = 0;
+                    dynamicRange = Math.min(dynamicRange + 1, 10);
+                }
+                
+                const mult = getMultiplier();
+                score += mult;
+                correctCount++;
+                totalAnswered++;
+                
+                updateComboDisplay();
+                
+                if (gameMode === "free" && combo >= targetCorrect) {
+                    questionEl.style.display = "none";
+                    spinner.classList.add("active");
+                    setTimeout(() => showEncouragement(), 800);
+                } else {
+                    questionEl.style.display = "none";
+                    spinner.classList.add("active");
+                    setTimeout(nextQuestion, 800);
+                }
+            } else {
+                btn.classList.add("wrong");
+                combo = 0;
+                consecutiveCorrect = 0;
+                consecutiveWrong++;
+                totalAnswered++;
+                
+                if (consecutiveWrong >= 2) {
+                    consecutiveWrong = 0;
+                    dynamicRange = Math.max(dynamicRange - 1, 0);
+                }
+                
+                updateComboDisplay();
+                
+                document.querySelectorAll(".option-btn").forEach(b => {
+                    if (b.dataset.correct === "true") {
+                        b.classList.add("correct");
+                    }
+                });
+                
+                setTimeout(nextQuestion, 1000);
+            }
+            
+            updateStats();
+        }
+
+        function showEncouragement() {
+            const messages = [
+                "太棒了!继续保持!",
+                "你是算术小能手!",
+                "连续答对10题!",
+                "厉害!继续加油!"
+            ];
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+            
+            spinner.classList.remove("active");
+            questionEl.style.display = "block";
+            questionEl.innerHTML = '<div style="font-size:1.5em;color:#4caf50;animation:pulse 0.5s">' + msg + '</div>';
+            
+            setTimeout(() => {
+                targetCorrect += 10;
+                combo = 0;
+                updateComboDisplay();
+                nextQuestion();
+            }, 1500);
+        }
+
+        function updateStats() {
+            questionNumEl.textContent = questionNum;
+            scoreEl.textContent = score;
+        }
+
+        function endGame() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            const timeUsed = Math.round((Date.now() - startTime) / 1000);
+            const accuracy = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+            const avgTime = totalAnswered > 0 ? (timeUsed / totalAnswered).toFixed(1) : 0;
+            
+            document.getElementById("total-questions").textContent = totalAnswered;
+            document.getElementById("correct-answers").textContent = correctCount;
+            document.getElementById("accuracy").textContent = accuracy + "%";
+            document.getElementById("time-used").textContent = timeUsed;
+            document.getElementById("max-combo").textContent = maxCombo;
+            document.getElementById("avg-time").textContent = avgTime;
+            
+            const highScoreKey = "arith_high_" + currentDifficulty + "_" + gameMode;
+            let highScore = parseInt(localStorage.getItem(highScoreKey) || "0");
+            const isNewRecord = score > highScore;
+            
+            if (isNewRecord) {
+                localStorage.setItem(highScoreKey, score.toString());
+                highScore = score;
+                newRecordEl.classList.add("active");
+                setTimeout(() => newRecordEl.classList.remove("active"), 2000);
+            }
+            
+            document.getElementById("high-score").textContent = highScore;
+            
+            if (isNewRecord) {
+                document.getElementById("result-title").textContent = "新纪录!";
+                document.getElementById("result-title").style.color = "#f4a460";
+            } else {
+                document.getElementById("result-title").textContent = gameMode === "timed" ? "挑战结束" : "练习完成";
+                document.getElementById("result-title").style.color = "#667eea";
+            }
+            
+            showScreen("result-screen");
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (document.getElementById("game-screen").classList.contains("active")) {
+                const btns = document.querySelectorAll(".option-btn");
+                
+                if (e.key >= "1" && e.key <= "4") {
+                    const index = parseInt(e.key) - 1;
+                    if (btns[index]) {
+                        btns[index].click();
+                    }
+                } else if (e.key === "Enter" && !isAnswering) {
+                    nextQuestion();
+                }
+            }
+        });
+
+        timedModeBtn.addEventListener("click", () => startGame("timed"));
+        freeModeBtn.addEventListener("click", () => startGame("free"));
+        
+        restartBtn.addEventListener("click", () => {
+            showScreen("start-screen");
+        });
+        
+        backBtn.addEventListener("click", () => {
+            showScreen("start-screen");
+        });
+
+        const style = document.createElement("style");
+        style.textContent = "@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }";
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

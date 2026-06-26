@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>急！</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #F8FAFC;
+            --card: #FFFFFF;
+            --text: #1E293B;
+            --text-secondary: #64748B;
+            --border: #E2E8F0;
+            --accent-purple: #8B5CF6;
+            --accent-pink: #EC4899;
+            --accent-green: #10B981;
+            --accent-yellow: #F59E0B;
+            --accent-red: #EF4444;
+            --accent-blue: #3B82F6;
+        }
+        [data-theme="dark"] {
+            --bg: #0F172A;
+            --card: #1E293B;
+            --text: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --border: #334155;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            padding-bottom: 80px;
+            transition: background 0.3s;
+        }
+        .header {
+            background: var(--card);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+        .location-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .location-icon {
+            font-size: 16px;
+        }
+        .location-text {
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .theme-btn, .refresh-btn {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .theme-btn:hover, .refresh-btn:hover {
+            background: var(--bg);
+        }
+        .theme-btn:disabled, .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .main-title {
+            text-align: center;
+            padding: 24px 16px 16px;
+        }
+        .main-title h1 {
+            font-size: 32px;
+            color: var(--text);
+        }
+        .main-title p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 0 16px;
+        }
+        .category-btn {
+            background: var(--card);
+            border: none;
+            border-radius: 16px;
+            padding: 20px 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .category-btn:active {
+            transform: scale(0.96);
+        }
+        .category-btn .emoji {
+            font-size: 36px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .category-btn .label {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .category-btn .desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .category-btn.toilet { border-top: 4px solid var(--accent-purple); }
+        .category-btn.food { border-top: 4px solid var(--accent-pink); }
+        .category-btn.hotel { border-top: 4px solid var(--accent-green); }
+        .category-btn.drink { border-top: 4px solid var(--accent-yellow); }
+        .category-btn.pharmacy { border-top: 4px solid var(--accent-red); }
+        .toilet .emoji::before { content: "🚽"; }
+        .food .emoji::before { content: "🍜"; }
+        .hotel .emoji::before { content: "🛏️"; }
+        .drink .emoji::before { content: "☕"; }
+        .pharmacy .emoji::before { content: "💊"; }
+        .full-width {
+            grid-column: span 2;
+        }
+        .back-btn {
+            display: none;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text);
+            cursor: pointer;
+            margin: 12px 16px;
+        }
+        .back-btn.show {
+            display: inline-block;
+        }
+        .search-box {
+            display: none;
+            padding: 0 16px 12px;
+        }
+        .search-box.show {
+            display: block;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 14px;
+            background: var(--card);
+            color: var(--text);
+            outline: none;
+        }
+        .search-input:focus {
+            border-color: var(--accent-blue);
+        }
+        .section-title {
+            font-size: 16px;
+            color: var(--text-secondary);
+            padding: 16px 16px 8px;
+            font-weight: 500;
+        }
+        #map {
+            display: none;
+            height: 300px;
+            margin: 0 16px 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #map.show {
+            display: block;
+        }
+        .place-list {
+            padding: 0 16px;
+        }
+        .place-item {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .place-item:active {
+            transform: scale(0.98);
+        }
+        .place-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .place-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .place-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #F59E0B;
+            font-size: 14px;
+        }
+        .place-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .place-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .place-address {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .place-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .nav-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .nav-btn.navigate {
+            background: var(--accent-blue);
+            color: white;
+        }
+        .nav-btn.fav {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .nav-btn.fav.active {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+        .detail-card {
+            display: none;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 12px 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--accent-blue);
+        }
+        .detail-card.show {
+            display: block;
+        }
+        .detail-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+        .detail-label {
+            color: var(--text-secondary);
+        }
+        .detail-value {
+            color: var(--text);
+            font-weight: 500;
+        }
+        .detail-close {
+            background: var(--bg);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-top: 16px;
+            width: 100%;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .secure-warning {
+            background: #FEF3C7;
+            color: #92400E;
+            padding: 12px 16px;
+            font-size: 13px;
+            text-align: center;
+            display: none;
+        }
+        .secure-warning.show {
+            display: block;
+        }
+        .favorites-entry {
+            background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .favorites-entry:active {
+            opacity: 0.9;
+        }
+        .favorites-entry .left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .favorites-entry .icon {
+            font-size: 24px;
+        }
+        .favorites-entry .text {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .favorites-entry .count {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .favorites-entry .arrow {
+            font-size: 20px;
+        }
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text);
+            color: var(--bg);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+        }
+        .leaflet-popup-content {
+            margin: 12px 16px;
+            font-size: 14px;
+        }
+        .popup-name {
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 4px;
+        }
+        .popup-dist {
+            color: #64748B;
+        }
+    </style>
+</head>
+<body>
+    <div class="secure-warning" id="secureWarning">当前环境非安全上下文(HTTPS)，无法获取定位</div>
+    
+    <header class="header">
+        <div class="location-bar">
+            <span class="location-icon">📍</span>
+            <span class="location-text" id="locationText">定位中...</span>
+        </div>
+        <div class="header-actions">
+            <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+            <button class="refresh-btn" id="refreshBtn" onclick="refreshLocation()">🔄</button>
+        </div>
+    </header>
+
+    <main id="mainView">
+        <div class="main-title">
+            <h1>急！</h1>
+            <p>日常生活紧急需求速查</p>
+        </div>
+        
+        <div class="favorites-entry" onclick="showFavorites()">
+            <div class="left">
+                <span class="icon">⭐</span>
+                <div>
+                    <div class="text">我的收藏</div>
+                    <div class="count" id="favCount">0 个收藏</div>
+                </div>
+            </div>
+            <span class="arrow">›</span>
+        </div>
+
+        <div class="category-grid" id="categoryGrid">
+            <button class="category-btn toilet" onclick="selectCategory('toilet')">
+                <span class="emoji"></span>
+                <div class="label">憋！</div>
+                <div class="desc">找厕所</div>
+            </button>
+            <button class="category-btn food" onclick="selectCategory('food')">
+                <span class="emoji"></span>
+                <div class="label">饿！</div>
+                <div class="desc">找餐厅</div>
+            </button>
+            <button class="category-btn hotel" onclick="selectCategory('hotel')">
+                <span class="emoji"></span>
+                <div class="label">困！</div>
+                <div class="desc">找酒店</div>
+            </button>
+            <button class="category-btn drink" onclick="selectCategory('drink')">
+                <span class="emoji"></span>
+                <div class="label">渴！</div>
+                <div class="desc">找饮品店</div>
+            </button>
+            <button class="category-btn pharmacy full-width" onclick="selectCategory('pharmacy')">
+                <span class="emoji"></span>
+                <div class="label">疼！</div>
+                <div class="desc">找药店</div>
+            </button>
+        </div>
+    </main>
+
+    <main id="listView" style="display:none;">
+        <button class="back-btn show" onclick="goBack()">← 返回</button>
+        <h2 class="section-title" id="listTitle">附近场所</h2>
+        <div class="search-box show">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索名称或地址..." oninput="debounceSearch()">
+        </div>
+        <div id="map"></div>
+        <div class="place-list" id="placeList"></div>
+        <div class="detail-card" id="detailCard">
+            <div class="detail-name" id="detailName"></div>
+            <div class="detail-row">
+                <span class="detail-label">地址</span>
+                <span class="detail-value" id="detailAddress"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">营业时间</span>
+                <span class="detail-value" id="detailHours"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">评分</span>
+                <span class="detail-value" id="detailRating"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">步行距离</span>
+                <span class="detail-value" id="detailDistance"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">预计时间</span>
+                <span class="detail-value" id="detailTime"></span>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="detail-close" style="flex:1;background:#3B82F6;color:white;" onclick="navigateTo()">导航前往</button>
+                <button class="detail-close" style="flex:1;background:#FEF3C7;color:#92400E;" onclick="toggleFavorite()">⭐ 收藏</button>
+            </div>
+            <button class="detail-close" onclick="closeDetail()">关闭</button>
+        </div>
+    </main>
+
+    <main id="favoritesView" style="display:none;">
+        <button class="back-btn show" onclick="goBack()">← 返回</button>
+        <h2 class="section-title">我的收藏</h2>
+        <div class="search-box show">
+            <input type="text" class="search-input" id="favSearchInput" placeholder="搜索收藏..." oninput="filterFavorites()">
+        </div>
+        <div class="place-list" id="favoritesList"></div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const categoryNames = {
+            toilet: "厕所",
+            food: "餐厅",
+            hotel: "酒店",
+            drink: "饮品店",
+            pharmacy: "药店"
+        };
+
+        const categoryEmojis = {
+            toilet: "🚽",
+            food: "🍜",
+            hotel: "🛏️",
+            drink: "☕",
+            pharmacy: "💊"
+        };
+
+        const mockData = {
+            toilet: [
+                {name: "购物中心卫生间", address: "商业街A座1层", rating: 4.5, hours: "08:00-22:00"},
+                {name: "公园公厕", address: "中央公园北门东侧", rating: 3.8, hours: "全天开放"},
+                {name: "地铁站卫生间", address: "2号线人民广场站", rating: 4.0, hours: "06:00-23:00"},
+                {name: "商场公共厕所", address: "万达广场2层", rating: 4.2, hours: "09:00-21:00"},
+                {name: "图书馆洗手间", address: "市图书馆1层", rating: 4.6, hours: "08:30-20:30"},
+                {name: "医院公共厕所", address: "第一医院门诊楼", rating: 4.1, hours: "全天开放"},
+                {name: "火车站卫生间", address: "火车站候车大厅", rating: 3.5, hours: "05:00-23:30"},
+                {name: "加油站公厕", address: "中石油加油站", rating: 3.9, hours: "全天开放"},
+                {name: "购物中心B座卫生间", address: "商业街B座2层", rating: 4.3, hours: "10:00-22:00"},
+                {name: "社区服务中心公厕", address: "社区中心1层", rating: 4.0, hours: "08:00-18:00"},
+                {name: "体育馆卫生间", address: "体育中心主场馆", rating: 4.2, hours: "06:00-22:00"},
+                {name: "商场地下公厕", address: "购物中心地下一层", rating: 4.1, hours: "09:00-21:00"}
+            ],
+            food: [
+                {name: "兰州拉面", address: "美食街12号", rating: 4.7, hours: "07:00-21:00"},
+                {name: "麦当劳", address: "人民路88号", rating: 4.5, hours: "24小时营业"},
+                {name: "沙县小吃", address: "步行街25号", rating: 4.3, hours: "06:30-22:00"},
+                {name: "肯德基", address: "商业中心1层", rating: 4.6, hours: "07:00-23:00"},
+                {name: "川菜馆", address: "美食巷6号", rating: 4.4, hours: "10:30-22:00"},
+                {name: "火锅店", address: "火锅街18号", rating: 4.8, hours: "11:00-02:00"},
+                {name: "寿司店", address: "日料区3楼", rating: 4.5, hours: "11:00-21:30"},
+                {name: "早餐铺", address: "社区门口", rating: 4.2, hours: "06:00-12:00"},
+                {name: "湘菜馆", address: "湘菜一条街", rating: 4.5, hours: "11:00-22:00"},
+                {name: "粤式茶餐厅", address: "商业街28号", rating: 4.6, hours: "08:00-22:00"},
+                {name: "烧烤摊", address: "夜市一条街", rating: 4.3, hours: "18:00-02:00"},
+                {name: "面馆", address: "小巷深处", rating: 4.4, hours: "07:00-20:00"},
+                {name: "饺子馆", address: "老城区12号", rating: 4.5, hours: "10:00-21:00"},
+                {name: "西餐厅", address: "金融街5号", rating: 4.7, hours: "11:00-22:00"}
+            ],
+            hotel: [
+                {name: "如家酒店", address: "火车站附近", rating: 4.2, hours: "24小时入住"},
+                {name: "汉庭酒店", address: "商业区中心", rating: 4.3, hours: "24小时入住"},
+                {name: "希尔顿酒店", address: "金融街1号", rating: 4.9, hours: "24小时入住"},
+                {name: "速8酒店", address: "机场附近", rating: 4.0, hours: "24小时入住"},
+                {name: "七天酒店", address: "大学城", rating: 4.1, hours: "24小时入住"},
+                {name: "民宿小栈", address: "古镇老街", rating: 4.6, hours: "08:00-22:00"},
+                {name: "青年旅社", address: "文创园内", rating: 4.4, hours: "全天营业"},
+                {name: "全季酒店", address: "商务区", rating: 4.5, hours: "24小时入住"},
+                {name: "亚朵酒店", address: "文化街", rating: 4.7, hours: "24小时入住"},
+                {name: "桔子酒店", address: "地铁站旁", rating: 4.4, hours: "24小时入住"},
+                {name: "公寓式酒店", address: "商业综合体", rating: 4.3, hours: "24小时入住"},
+                {name: "度假民宿", address: "郊区景点", rating: 4.8, hours: "08:00-23:00"}
+            ],
+            drink: [
+                {name: "星巴克", address: "购物中心1层", rating: 4.6, hours: "07:00-22:00"},
+                {name: "瑞幸咖啡", address: "写字楼底商", rating: 4.5, hours: "07:30-21:00"},
+                {name: "喜茶", address: "商业街2号", rating: 4.7, hours: "10:00-22:00"},
+                {name: "奶茶店", address: "学校旁边", rating: 4.3, hours: "10:00-22:00"},
+                {name: "茶颜悦色", address: "步行街", rating: 4.8, hours: "09:00-23:00"},
+                {name: "太平洋咖啡", address: "图书馆旁", rating: 4.4, hours: "08:00-21:00"},
+                {name: "便利店饮品", address: "24小时便利店", rating: 4.0, hours: "24小时"},
+                {name: "奈雪的茶", address: "商业中心", rating: 4.6, hours: "10:00-22:00"},
+                {name: "一点点奶茶", address: "学生街", rating: 4.4, hours: "10:00-22:00"},
+                {name: "瑞幸咖啡二店", address: "地铁出口", rating: 4.5, hours: "07:00-21:00"},
+                {name: "古茗茶饮", address: "社区底商", rating: 4.3, hours: "09:00-22:00"},
+                {name: "书亦烧仙草", address: "商业街", rating: 4.4, hours: "10:00-22:00"}
+            ],
+            pharmacy: [
+                {name: "老百姓大药房", address: "健康路15号", rating: 4.5, hours: "08:00-22:00"},
+                {name: "海王星辰", address: "社区服务中心旁", rating: 4.4, hours: "07:30-22:30"},
+                {name: "一心堂", address: "主街28号", rating: 4.3, hours: "08:00-21:30"},
+                {name: "24小时药店", address: "医院对面", rating: 4.6, hours: "24小时营业"},
+                {name: "同仁堂", address: "老字号街区", rating: 4.7, hours: "09:00-21:00"},
+                {name: "大参林", address: "商业区", rating: 4.4, hours: "08:00-22:00"},
+                {name: "叮当快药", address: "线上预订", rating: 4.5, hours: "24小时配送"},
+                {name: "国大药房", address: "居民区", rating: 4.3, hours: "08:00-22:00"},
+                {name: "益丰大药房", address: "商业街", rating: 4.5, hours: "08:00-21:30"},
+                {name: "第一医药", address: "市中心", rating: 4.6, hours: "08:00-22:00"},
+                {name: "仁和堂", address: "老城区", rating: 4.4, hours: "07:30-22:00"},
+                {name: "康复药店", address: "医院附近", rating: 4.3, hours: "24小时营业"},
+                {name: "专科药店", address: "医疗区", rating: 4.5, hours: "09:00-20:00"}
+            ]
+        };
+
+        let currentCategory = null;
+        let currentPlace = null;
+        let allPlaces = [];
+        let filteredPlaces = [];
+        let userLat = 31.2304;
+        let userLng = 121.4737;
+        let locationAccuracy = null;
+        let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+        let map = null;
+        let markers = [];
+        let userMarker = null;
+        let searchTimer = null;
+        let lastLocationTime = 0;
+        let lastCategoryTime = 0;
+        const LOCATION_COOLDOWN = 60000; // 定位冷却60秒
+        const CATEGORY_COOLDOWN = 3000;  // 分类切换冷却3秒
+
+        function checkSecureContext() {
+            if (!window.isSecureContext) {
+                document.getElementById("secureWarning").classList.add("show");
+                document.getElementById("locationText").textContent = "非HTTPS,定位不可用(模拟模式)";
+                return false;
+            }
+            return true;
+        }
+
+        function refreshLocation() {
+            if (!checkSecureContext()) return;
+            if (!navigator.geolocation) {
+                document.getElementById("locationText").textContent = "浏览器不支持定位";
+                return;
+            }
+            var now = Date.now();
+            if (now - lastLocationTime < LOCATION_COOLDOWN) {
+                var remain = Math.ceil((LOCATION_COOLDOWN - (now - lastLocationTime)) / 1000);
+                document.getElementById("locationText").textContent = "定位冷却中(" + remain + "秒后可重试)";
+                return;
+            }
+            document.getElementById("locationText").textContent = "定位中...";
+            document.getElementById("refreshBtn").disabled = true;
+            navigator.permissions.query({name:'geolocation'}).then(function(result){
+                if(result.state==='denied'){
+                    document.getElementById("locationText").textContent = "定位权限被拒绝,请在设置中开启";
+                    document.getElementById("refreshBtn").disabled = false;
+                    return;
+                }
+                doGeolocation();
+            }).catch(function(){
+                doGeolocation();
+            });
+        }
+
+        function doGeolocation(){
+            lastLocationTime = Date.now();
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    userLat = pos.coords.latitude;
+                    userLng = pos.coords.longitude;
+                    locationAccuracy = pos.coords.accuracy;
+                    var accStr = locationAccuracy < 100 ? Math.round(locationAccuracy) + 'm' : (locationAccuracy / 1000).toFixed(1) + 'km';
+                    document.getElementById("locationText").textContent = "已定位(精度" + accStr + ")";
+                    document.getElementById("refreshBtn").disabled = false;
+                    if (map && currentCategory) {
+                        updateMapMarkers();
+                    }
+                },
+                function(err) {
+                    var msgs = {
+                        1: "定位权限被拒绝,请在设置中开启",
+                        2: "无法获取位置信息,请检查GPS/网络",
+                        3: "定位超时,请稍后重试"
+                    };
+                    document.getElementById("locationText").textContent = msgs[err.code] || "定位失败";
+                    document.getElementById("refreshBtn").disabled = false;
+                },
+                {timeout: 10000, enableHighAccuracy: true, maximumAge: 60000}
+            );
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const themeBtn = document.getElementById("themeBtn");
+            if (body.getAttribute("data-theme") === "dark") {
+                body.removeAttribute("data-theme");
+                themeBtn.textContent = "🌙";
+                localStorage.setItem("theme", "light");
+            } else {
+                body.setAttribute("data-theme", "dark");
+                themeBtn.textContent = "☀️";
+                localStorage.setItem("theme", "dark");
+            }
+        }
+
+        function loadTheme() {
+            const saved = localStorage.getItem("theme");
+            if (saved === "dark") {
+                document.body.setAttribute("data-theme", "dark");
+                document.getElementById("themeBtn").textContent = "☀️";
+            }
+        }
+
+        function updateFavCount() {
+            document.getElementById("favCount").textContent = favorites.length + " 个收藏";
+        }
+
+        function selectCategory(cat) {
+            var now = Date.now();
+            if (now - lastCategoryTime < CATEGORY_COOLDOWN) {
+                showToast("操作太频繁,请稍后再试");
+                return;
+            }
+            lastCategoryTime = now;
+            currentCategory = cat;
+            document.getElementById("mainView").style.display = "none";
+            document.getElementById("listView").style.display = "block";
+            document.getElementById("favoritesView").style.display = "none";
+            document.getElementById("detailCard").classList.remove("show");
+            document.getElementById("searchInput").value = "";
+            document.getElementById("listTitle").textContent = categoryEmojis[cat] + " 附近" + categoryNames[cat];
+            
+            allPlaces = mockData[cat].map(function(p, i) {
+                return {
+                    data: p,
+                    lat: userLat + (Math.random() - 0.5) * 0.02,
+                    lng: userLng + (Math.random() - 0.5) * 0.02,
+                    dist: Math.floor(Math.random() * 2000) + 100
+                };
+            });
+            filteredPlaces = allPlaces.slice();
+            
+            initMap();
+            renderPlaceList(filteredPlaces);
+        }
+
+        function initMap() {
+            const mapContainer = document.getElementById("map");
+            mapContainer.classList.add("show");
+            
+            if (!map) {
+                map = L.map("map").setView([userLat, userLng], 15);
+                L.tileLayer("https://webrd0{s}.is.autonavi.com/appmap/tile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}", {
+                    attribution: "© 高德地图",
+                    subdomains: ['1','2','3','4']
+                }).addTo(map);
+            } else {
+                map.setView([userLat, userLng], 15);
+            }
+            
+            updateMapMarkers();
+        }
+
+        function updateMapMarkers() {
+            markers.forEach(function(m) { map.removeLayer(m); });
+            markers = [];
+            
+            if (userMarker) { map.removeLayer(userMarker); }
+            userMarker = L.circleMarker([userLat, userLng], {
+                radius: 8,
+                fillColor: "#3B82F6",
+                color: "#fff",
+                weight: 2,
+                fillOpacity: 1
+            }).addTo(map).bindPopup("当前位置");
+            
+            filteredPlaces.forEach(function(place) {
+                const marker = L.marker([place.lat, place.lng], {
+                    icon: L.divIcon({
+                        html: categoryEmojis[currentCategory],
+                        className: "custom-marker",
+                        iconSize: [30, 30]
+                    })
+                }).addTo(map);
+                
+                const distStr = place.dist > 1000 ? (place.dist / 1000).toFixed(1) + "km" : place.dist + "m";
+                marker.bindPopup('<div class="popup-name">' + place.data.name + '</div><div class="popup-dist">距离 ' + distStr + '</div>');
+                
+                marker.on("click", function() {
+                    showDetail(place.data, distStr);
+                });
+                
+                markers.push(marker);
+            });
+            
+            map.invalidateSize();
+        }
+
+        function renderPlaceList(places) {
+            const list = document.getElementById("placeList");
+            list.innerHTML = "";
+            
+            if (places.length === 0) {
+                list.innerHTML = '<div class="no-data">暂无符合条件的场所</div>';
+                return;
+            }
+            
+            places.forEach(function(place) {
+                const distStr = place.dist > 1000 ? (place.dist / 1000).toFixed(1) + "km" : place.dist + "m";
+                const stars = "★".repeat(Math.floor(place.data.rating)) + (place.data.rating % 1 >= 0.5 ? "☆" : "");
+                const isFav = favorites.some(function(f) { return f.name === place.data.name; });
+                
+                const item = document.createElement("div");
+                item.className = "place-item";
+                item.onclick = function() { showDetail(place.data, distStr); };
+                item.innerHTML = 
+                    '<div class="place-header">' +
+                        '<div class="place-name">' + place.data.name + '</div>' +
+                        '<div class="place-rating">' + stars + ' ' + place.data.rating + '</div>' +
+                    '</div>' +
+                    '<div class="place-meta">' +
+                        '<span>📍 ' + distStr + '</span>' +
+                        '<span>⏰ ' + place.data.hours + '</span>' +
+                    '</div>' +
+                    '<div class="place-address">' + place.data.address + '</div>' +
+                    '<div class="place-actions">' +
+                        '<button class="nav-btn navigate" onclick="event.stopPropagation();navigateToPlace(\'' + place.data.name + '\',\'' + place.data.address + '\')">🧭 导航</button>' +
+                        '<button class="nav-btn fav ' + (isFav ? "active" : "") + '" onclick="event.stopPropagation();toggleFavFromList(\'' + place.data.name + '\')">' + (isFav ? "★ 已收藏" : "☆ 收藏") + '</button>' +
+                    '</div>';
+                list.appendChild(item);
+            });
+        }
+
+        function debounceSearch() {
+            if (searchTimer) clearTimeout(searchTimer);
+            searchTimer = setTimeout(function() {
+                filterPlaces();
+            }, 300);
+        }
+
+        function filterPlaces() {
+            const keyword = document.getElementById("searchInput").value.toLowerCase().trim();
+            if (!keyword) {
+                filteredPlaces = allPlaces.slice();
+            } else {
+                filteredPlaces = allPlaces.filter(function(p) {
+                    return p.data.name.toLowerCase().includes(keyword) || p.data.address.toLowerCase().includes(keyword);
+                });
+            }
+            renderPlaceList(filteredPlaces);
+            updateMapMarkers();
+        }
+
+        function showDetail(place, distStr) {
+            currentPlace = place;
+            const walkTime = Math.ceil(parseInt(distStr) / 80);
+            const timeStr = distStr.includes("km") ? (parseFloat(distStr) * 12).toFixed(0) + "分钟" : walkTime + "分钟";
+            document.getElementById("detailName").textContent = place.name;
+            document.getElementById("detailAddress").textContent = place.address;
+            document.getElementById("detailHours").textContent = place.hours;
+            document.getElementById("detailRating").textContent = "★".repeat(Math.floor(place.rating)) + " " + place.rating;
+            document.getElementById("detailDistance").textContent = distStr;
+            document.getElementById("detailTime").textContent = timeStr;
+            document.getElementById("detailCard").classList.add("show");
+        }
+
+        function closeDetail() {
+            document.getElementById("detailCard").classList.remove("show");
+        }
+
+        function navigateTo() {
+            if (currentPlace) {
+                navigateToPlace(currentPlace.name, currentPlace.address);
+            }
+        }
+
+        function navigateToPlace(name, address) {
+            const encodedName = encodeURIComponent(name);
+            window.location.href = "geo:0,0?q=" + encodedName + "&navigate";
+        }
+
+        function toggleFavorite() {
+            if (!currentPlace) return;
+            const idx = favorites.findIndex(function(f) { return f.name === currentPlace.name; });
+            if (idx > -1) {
+                favorites.splice(idx, 1);
+                showToast("已取消收藏");
+            } else {
+                favorites.push(currentPlace);
+                showToast("已添加到收藏");
+            }
+            localStorage.setItem("favorites", JSON.stringify(favorites));
+            updateFavCount();
+            renderPlaceList(filteredPlaces);
+        }
+
+        function toggleFavFromList(name) {
+            const place = allPlaces.find(function(p) { return p.data.name === name; });
+            if (!place) return;
+            
+            const idx = favorites.findIndex(function(f) { return f.name === place.data.name; });
+            if (idx > -1) {
+                favorites.splice(idx, 1);
+                showToast("已取消收藏");
+            } else {
+                favorites.push(place.data);
+                showToast("已添加到收藏");
+            }
+            localStorage.setItem("favorites", JSON.stringify(favorites));
+            updateFavCount();
+            renderPlaceList(filteredPlaces);
+        }
+
+        function showFavorites() {
+            document.getElementById("mainView").style.display = "none";
+            document.getElementById("listView").style.display = "none";
+            document.getElementById("favoritesView").style.display = "block";
+            document.getElementById("detailCard").classList.remove("show");
+            document.getElementById("favSearchInput").value = "";
+            renderFavoritesList(favorites);
+        }
+
+        function filterFavorites() {
+            const keyword = document.getElementById("favSearchInput").value.toLowerCase().trim();
+            if (!keyword) {
+                renderFavoritesList(favorites);
+            } else {
+                const filtered = favorites.filter(function(f) {
+                    return f.name.toLowerCase().includes(keyword) || f.address.toLowerCase().includes(keyword);
+                });
+                renderFavoritesList(filtered);
+            }
+        }
+
+        function renderFavoritesList(places) {
+            const list = document.getElementById("favoritesList");
+            list.innerHTML = "";
+            
+            if (places.length === 0) {
+                list.innerHTML = '<div class="no-data">暂无收藏,去添加一些吧</div>';
+                return;
+            }
+            
+            places.forEach(function(place) {
+                const item = document.createElement("div");
+                item.className = "place-item";
+                item.onclick = function() { showDetail(place, "--"); };
+                item.innerHTML = 
+                    '<div class="place-header">' +
+                        '<div class="place-name">' + place.name + '</div>' +
+                        '<div class="place-rating">⭐ ' + place.rating + '</div>' +
+                    '</div>' +
+                    '<div class="place-address">' + place.address + '</div>' +
+                    '<div class="place-meta"><span>⏰ ' + place.hours + '</span></div>' +
+                    '<div class="place-actions">' +
+                        '<button class="nav-btn navigate" onclick="event.stopPropagation();navigateToPlace(\'' + place.name + '\',\'' + place.address + '\')">🧭 导航</button>' +
+                        '<button class="nav-btn fav active" onclick="event.stopPropagation();removeFavorite(\'' + place.name + '\')">取消收藏</button>' +
+                    '</div>';
+                list.appendChild(item);
+            });
+        }
+
+        function removeFavorite(name) {
+            const idx = favorites.findIndex(function(f) { return f.name === name; });
+            if (idx > -1) {
+                favorites.splice(idx, 1);
+                localStorage.setItem("favorites", JSON.stringify(favorites));
+                updateFavCount();
+                filterFavorites();
+                showToast("已取消收藏");
+            }
+        }
+
+        function goBack() {
+            document.getElementById("mainView").style.display = "block";
+            document.getElementById("listView").style.display = "none";
+            document.getElementById("favoritesView").style.display = "none";
+            document.getElementById("detailCard").classList.remove("show");
+            document.getElementById("map").classList.remove("show");
+            if (map) {
+                

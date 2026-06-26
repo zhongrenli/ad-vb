@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素沙漏</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --text: #e0d5c1;
+    --accent: #d4a574;
+    --accent2: #c792ea;
+    --sand-light: #f0c060;
+    --sand-mid: #d4943a;
+    --sand-dark: #b8702a;
+    --glass: rgba(180,200,220,0.18);
+    --wood: #6b4c3b;
+    --wood-light: #8b6c5b;
+    --wood-dark: #4a3020;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border-radius: 4px;
+  }
+
+  #ui {
+    position: absolute;
+    bottom: max(16px, 3vh);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0 16px;
+    z-index: 10;
+  }
+
+  .btn {
+    background: var(--surface);
+    color: var(--text);
+    border: 2px solid var(--accent);
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+    min-width: 54px;
+    text-align: center;
+  }
+  .btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn:active {
+    transform: scale(0.95);
+  }
+  .btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent2);
+  }
+  .btn.accent {
+    border-color: var(--accent2);
+    font-weight: bold;
+    font-size: 15px;
+    padding: 8px 20px;
+  }
+  .btn.accent:hover {
+    background: var(--accent2);
+  }
+
+  @media (max-width: 480px) {
+    .btn { font-size: 11px; padding: 6px 12px; min-width: 44px; }
+  }
+
+  /* ---- 色环面板 ---- */
+  #colorPanel {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 14px;
+    z-index: 20;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  #colorPanel.show { display: flex; }
+  #colorWheel { border-radius: 50%; cursor: crosshair; }
+  #colorPreview {
+    width: 32px; height: 32px;
+    border-radius: 4px;
+    border: 2px solid var(--accent);
+  }
+  #colorPanel .row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  #colorPanel label {
+    color: var(--text); font-family: inherit; font-size: 11px; letter-spacing: 1px;
+  }
+  #brightSlider {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #000, var(--text));
+    outline: none; cursor: pointer;
+  }
+  #brightSlider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--accent); border: 2px solid var(--text); cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="ui">
+  <button class="btn accent" id="btn-flip">↻</button>
+  <button class="btn" id="btn-color" title="颜色">◐</button>
+</div>
+
+<div id="colorPanel">
+  <canvas id="colorWheel" width="150" height="150"></canvas>
+  <div class="row">
+    <div id="colorPreview"></div>
+    <label>B</label>
+    <input type="range" id="brightSlider" min="30" max="100" value="80">
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  像素沙漏 — 拖拽设置时间
+// ============================================================
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ---------- 像素数字字体 (3x5) ----------
+const DIGIT = {
+  '0': ['111','101','101','101','111'],
+  '1': ['010','010','010','010','010'],
+  '2': ['111','001','111','100','111'],
+  '3': ['111','001','111','001','111'],
+  '4': ['101','101','111','001','001'],
+  '5': ['111','100','111','001','111'],
+  '6': ['111','100','111','101','111'],
+  '7': ['111','001','001','001','001'],
+  '8': ['111','101','111','101','111'],
+  '9': ['111','101','111','001','111'],
+};
+
+// ---------- 沙漏几何 ----------
+const TOP_ROWS = [7, 7, 5, 5, 3, 3, 1];
+const BOT_ROWS = [1, 3, 3, 5, 5, 7, 7];
+let SAND_COLORS = ['#f0c060','#e8b44a','#dca840','#d4943a','#c88830','#b8702a'];
+const CELL_GAP_RATIO = 0.15;
+
+let cw, ch, cellSz, gap;
+let topCells = [], botCells = [], totalUnits;
+let moved = 0, landed = 0;
+let fallParticles = [];
+
+// 计时 + 设置模式
+let timerDuration = 60;
+let elapsed = 0, remaining = 60;
+let running = true, paused = false;
+let settingMode = false;
+let settingStartX = 0, settingBaseTime = 60;
+let settingCountdown = 0;
+
+let animId, lastTime = 0;
+
+// ---------- BFS ----------
+function centerOutOrder(w) {
+  const r = [], m = Math.floor((w - 1) / 2);
+  r.push(m);
+  for (let d = 1; d <= m + 1; d++) {
+    if (m - d >= 0) r.push(m - d);
+    if (m + d < w) r.push(m + d);
+  }
+  return r;
+}
+
+function buildCells() {
+  topCells = []; botCells = [];
+  for (let ri = 0; ri < TOP_ROWS.length; ri++)
+    for (const ci of centerOutOrder(TOP_ROWS[ri])) topCells.push({ row: ri, col: ci, x: 0, y: 0 });
+  for (let ri = BOT_ROWS.length - 1; ri >= 0; ri--)
+    for (const ci of centerOutOrder(BOT_ROWS[ri])) botCells.push({ row: ri, col: ci, x: 0, y: 0 });
+  totalUnits = topCells.length;
+}
+
+function computePositions() {
+  const maxCols = Math.max(...TOP_ROWS, ...BOT_ROWS);
+  const rows = TOP_ROWS.length + BOT_ROWS.length + 1.5;
+  const fw = (cw * 0.58) / (maxCols + (maxCols - 1) * CELL_GAP_RATIO);
+  const fh = (ch * 0.68) / rows;
+  cellSz = Math.max(10, Math.min(40, Math.floor(Math.min(fw, fh))));
+  gap = Math.max(1, Math.floor(cellSz * CELL_GAP_RATIO));
+  const step = cellSz + gap, cxPx = cw / 2, neckPx = ch / 2;
+  const topBase = neckPx - TOP_ROWS.length * step + gap;
+  const botBase = neckPx + gap;
+  for (const c of topCells) { const rw = TOP_ROWS[c.row], ox = (rw - 1) / 2 - c.col; c.x = cxPx - ox * step; c.y = topBase + c.row * step; }
+  for (const c of botCells) { const rw = BOT_ROWS[c.row], ox = (rw - 1) / 2 - c.col; c.x = cxPx - ox * step; c.y = botBase + c.row * step; }
+}
+
+// ---------- 绘制 ----------
+function drawDigit(d, px, py, color) {
+  const rows = DIGIT[d];
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 3; c++)
+      if (rows[r][c] === '1') { ctx.fillStyle = color; ctx.fillRect(px + c * cellSz, py + r * cellSz, cellSz, cellSz); }
+}
+
+function drawClock() {
+  const dC = hsvToHex(curHue, Math.floor(curSat * 0.25), Math.floor(curVal * 0.55));
+  const chipW = 3 * cellSz + gap * 2, chipH = 5 * cellSz;
+  const step = cellSz + gap, cxPx = cw / 2, cyPx = ch / 2;
+  const maxW = Math.max(...TOP_ROWS, ...BOT_ROWS);
+  const hgHalfW = (maxW * step - gap) / 2;
+  const inSet = settingMode || settingCountdown > 0;
+  const mm = Math.floor(inSet ? timerDuration / 60 : Math.ceil(remaining) / 60);
+  const ss = inSet ? timerDuration % 60 : Math.ceil(remaining) % 60;
+  const ms = String(Math.min(99, mm)).padStart(2, '0');
+  const sc = String(Math.min(59, ss)).padStart(2, '0');
+  const mx = cxPx - hgHalfW - chipW * 2 - gap * 2, sx = cxPx + hgHalfW + gap * 2;
+  drawDigit(ms[0], mx, cyPx - chipH / 2, dC); drawDigit(ms[1], mx + chipW, cyPx - chipH / 2, dC);
+  drawDigit(sc[0], sx, cyPx - chipH / 2, dC); drawDigit(sc[1], sx + chipW, cyPx - chipH / 2, dC);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, cw, ch);
+  drawClock();
+
+  // 空槽
+  ctx.fillStyle = '#0a0a14';
+  for (const c of topCells) ctx.fillRect(c.x, c.y, cellSz, cellSz);
+  for (const c of botCells) ctx.fillRect(c.x, c.y, cellSz, cellSz);
+
+  const inSet = settingMode || settingCountdown > 0;
+  if (inSet) {
+    const ct = topCells[topCells.length - 3], cb = botCells[botCells.length - 3];
+    const colonC = SAND_COLORS[0];
+    ctx.fillStyle = colonC;
+    ctx.fillRect(ct.x, ct.y, cellSz, cellSz);
+    ctx.fillRect(cb.x, cb.y, cellSz, cellSz);
+    if (settingCountdown > 0) {
+      ctx.strokeStyle = colonC; ctx.lineWidth = 1;
+      ctx.strokeRect(ct.x - 1, ct.y - 1, cellSz + 2, cellSz + 2);
+      ctx.strokeRect(cb.x - 1, cb.y - 1, cellSz + 2, cellSz + 2);
+    }
+  } else {
+    for (let i = moved; i < topCells.length; i++) {
+      const c = topCells[i], ci = (c.row * 11 + c.col * 7) % SAND_COLORS.length;
+      ctx.fillStyle = SAND_COLORS[ci]; ctx.fillRect(c.x, c.y, cellSz, cellSz);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(c.x + cellSz - 1, c.y, 1, cellSz); ctx.fillRect(c.x, c.y + cellSz - 1, cellSz, 1);
+    }
+    for (let i = 0; i < landed && i < botCells.length; i++) {
+      const c = botCells[i], ci = (c.row * 7 + c.col * 13) % SAND_COLORS.length;
+      ctx.fillStyle = SAND_COLORS[ci]; ctx.fillRect(c.x, c.y, cellSz, cellSz);
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(c.x + cellSz - 1, c.y, 1, cellSz); ctx.fillRect(c.x, c.y + cellSz - 1, cellSz, 1);
+    }
+  }
+
+  for (const p of fallParticles) {
+    for (let t = 0; t < p.trail.length; t++) {
+      ctx.globalAlpha = (t + 1) / p.trail.length * 0.8;
+      const sz = cellSz * 0.3 + (cellSz * 0.4) * (t / p.trail.length);
+      ctx.fillStyle = p.color; ctx.fillRect(p.trail[t].x - sz / 2, p.trail[t].y - sz / 2, sz, sz);
+    }
+    ctx.globalAlpha = 1;
+    const sz = cellSz * 0.7; ctx.fillStyle = p.color; ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+  }
+}
+
+// ---------- 下落 ----------
+const FALL_SPEED = 380;
+
+function spawnFallParticle(i) {
+  if (i >= topCells.length) return;
+  const tgt = i < botCells.length ? botCells[i] : botCells[botCells.length - 1];
+  const neck = topCells[topCells.length - 1];
+  const sx = neck.x + cellSz / 2, sy = neck.y + cellSz / 2, ty = tgt.y + cellSz / 2;
+  const dy = (ty > sy) ? FALL_SPEED + Math.random() * 120 : FALL_SPEED;
+  const ci = Math.floor(Math.random() * SAND_COLORS.length);
+  fallParticles.push({ x: sx, y: sy, targetY: ty, dy, color: SAND_COLORS[ci], trail: [] });
+}
+
+function updateFallParticles(dt) {
+  for (let i = fallParticles.length - 1; i >= 0; i--) {
+    const p = fallParticles[i];
+    p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 8) p.trail.shift();
+    p.y += p.dy * dt;
+    if (p.y >= p.targetY) { fallParticles.splice(i, 1); landed++; }
+  }
+}
+
+// ---------- 计时 ----------
+function updateTimer(dt) {
+  if (settingCountdown > 0) { settingCountdown -= dt; if (settingCountdown <= 0) { settingCountdown = 0; exitSetting(); } return; }
+  if (settingMode) return;
+  if (!running || paused) return;
+  elapsed += dt; remaining = Math.max(0, timerDuration - elapsed);
+  const target = Math.floor((elapsed / timerDuration) * totalUnits);
+  if (target > moved) { for (let i = moved; i < target && i < totalUnits; i++) spawnFallParticle(i); moved = Math.min(target, totalUnits); }
+  if (remaining <= 0 && landed >= totalUnits && fallParticles.length === 0) running = false;
+}
+
+function exitSetting() {
+  settingMode = false; settingCountdown = 0;
+  elapsed = 0; remaining = timerDuration; moved = 0; landed = 0; fallParticles = []; running = true; paused = false;
+}
+
+function flip() { exitSetting(); }
+
+// ---------- 设置模式交互 ----------
+canvas.addEventListener('mousedown', e => {
+  if (colorPanel.classList.contains('show')) return;
+  settingMode = true; settingStartX = e.clientX; settingBaseTime = timerDuration;
+  settingCountdown = 0; elapsed = 0; moved = 0; landed = 0; fallParticles = []; running = false;
+});
+canvas.addEventListener('touchstart', e => {
+  if (colorPanel.classList.contains('show')) return;
+  e.preventDefault();
+  settingMode = true; settingStartX = e.touches[0].clientX; settingBaseTime = timerDuration;
+  settingCountdown = 0; elapsed = 0; moved = 0; landed = 0; fallParticles = []; running = false;
+}, { passive: false });
+
+window.addEventListener('mousemove', e => {
+  if (!settingMode) return;
+  timerDuration = Math.max(1, Math.min(5999, settingBaseTime + Math.round((e.clientX - settingStartX) / 4)));
+});
+window.addEventListener('touchmove', e => {
+  if (!settingMode) return;
+  timerDuration = Math.max(1, Math.min(5999, settingBaseTime + Math.round((e.touches[0].clientX - settingStartX) / 4)));
+}, { passive: false });
+
+window.addEventListener('mouseup', () => { if (settingMode) { settingMode = false; settingCountdown = 3; } });
+window.addEventListener('touchend', () => { if (settingMode) { settingMode = false; settingCountdown = 3; } });
+
+// ---------- 响应式 ----------
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cw = window.innerWidth; ch = window.innerHeight;
+  canvas.width = cw * dpr; canvas.height = ch * dpr;
+  canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  buildCells(); computePositions();
+  moved = Math.floor((elapsed / timerDuration) * totalUnits);
+  landed = Math.floor((elapsed / timerDuration) * totalUnits);
+}
+window.addEventListener('resize', resize);
+
+// ---------- 主循环 ----------
+function loop(ts) {
+  animId = requestAnimationFrame(loop);
+  if (!lastTime) lastTime = ts;
+  let dt = (ts - lastTime) / 1000; if (dt > 0.15) dt = 0.15; lastTime = ts;
+  updateTimer(dt); updateFallParticles(dt); draw();
+}
+
+// ---------- 控制 ----------
+function togglePause() { paused = !paused; }
+document.getElementById('btn-flip').addEventListener('click', flip);
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.code === 'KeyF') { e.preventDefault(); flip(); }
+});
+
+// ---------- 色环 ----------
+const wheelCanvas = document.getElementById('colorWheel');
+const wheelCtx = wheelCanvas.getContext('2d');
+const colorPanel = document.getElementById('colorPanel');
+const colorPreview = document.getElementById('colorPreview');
+const brightSlider = document.getElementById('brightSlider');
+const WHEEL_R = 72, WHEEL_CX = 75, WHEEL_CY = 75;
+let curHue = 40, curSat = 80, curVal = 80;
+
+function hsvToHex(h, s, v) {
+  const sv = s / 100, vv = v / 100, c = vv * sv, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = vv - c;
+  let r, g, b;
+  if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; }
+  const toHex = v => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function buildPalette(h, s, v) {
+  return [hsvToHex(h, s, v), hsvToHex((h + 8) % 360, s - 5, v - 5),
+    hsvToHex((h - 5 + 360) % 360, s - 10, v - 10), hsvToHex((h + 12) % 360, s - 15, v - 20),
+    hsvToHex((h - 8 + 360) % 360, s - 20, v - 30), hsvToHex((h + 3) % 360, s - 25, v - 35)];
+}
+
+function drawWheel() {
+  const img = wheelCtx.createImageData(150, 150);
+  for (let py = 0; py < 150; py++) for (let px = 0; px < 150; px++) {
+    const dx = px - WHEEL_CX, dy = py - WHEEL_CY, dist = Math.sqrt(dx * dx + dy * dy), idx = (py * 150 + px) * 4;
+    if (dist <= WHEEL_R) {
+      const a = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, sat = Math.min(100, (dist / WHEEL_R) * 100);
+      const hex = hsvToHex(a, sat, curVal);
+      img.data[idx] = parseInt(hex.slice(1, 3), 16); img.data[idx + 1] = parseInt(hex.slice(3, 5), 16);
+      img.data[idx + 2] = parseInt(hex.slice(5, 7), 16); img.data[idx + 3] = 255;
+    }
+  }
+  wheelCtx.putImageData(img, 0, 0);
+  const rad = (curHue * Math.PI) / 180, sr = (curSat / 100) * WHEEL_R;
+  const ix = WHEEL_CX + Math.cos(rad) * sr, iy = WHEEL_CY + Math.sin(rad) * sr;
+  wheelCtx.beginPath(); wheelCtx.arc(ix, iy, 5, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#fff'; wheelCtx.fill();
+  wheelCtx.strokeStyle = '#1a1a2e'; wheelCtx.lineWidth = 2; wheelCtx.stroke();
+}
+
+function updateColors() { SAND_COLORS = buildPalette(curHue, curSat, curVal); colorPreview.style.background = SAND_COLORS[0]; drawWheel(); }
+
+wheelCanvas.addEventListener('mousedown', e => {
+  pickColor(e); const mv = e => pickColor(e);
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', () => { document.removeEventListener('mousemove', mv); }, { once: true });
+});
+wheelCanvas.addEventListener('touchstart', e => {
+  e.preventDefault(); pickColor(e.touches[0]);
+  const mv = e => { e.preventDefault(); pickColor(e.touches[0]); };
+  document.addEventListener('touchmove', mv, { passive: false });
+  document.addEventListener('touchend', () => document.removeEventListener('touchmove', mv), { once: true });
+});
+
+function pickColor(e) {
+  const r = wheelCanvas.getBoundingClientRect(), dx = e.clientX - r.left - WHEEL_CX, dy = e.clientY - r.top - WHEEL_CY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist <= WHEEL_R) { curHue = Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360); curSat = Math.round(Math.min(100, (dist / WHEEL_R) * 100)); updateColors(); }
+}
+
+brightSlider.addEventListener('input', () => { curVal = parseInt(brightSlider.value); updateColors(); });
+
+document.getElementById('btn-color').addEventListener('click', () => {
+  colorPanel.classList.toggle('show');
+  if (colorPanel.classList.contains('show')) { brightSlider.value = curVal; drawWheel(); colorPreview.style.background = SAND_COLORS[0]; }
+});
+
+document.addEventListener('click', e => {
+  if (colorPanel.classList.contains('show') && !colorPanel.contains(e.target) && e.target !== document.getElementById('btn-color'))
+    colorPanel.classList.remove('show');
+});
+
+drawWheel(); colorPreview.style.background = SAND_COLORS[0];
+
+// ---------- 启动 ----------
+resize(); flip();
+lastTime = performance.now(); animId = requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>

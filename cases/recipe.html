@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FF6B35">
+  <title>今天吃什么</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --primary: #FF6B35;
+      --primary-dark: #E55A2B;
+      --primary-light: #FF8F5E;
+      --accent: #E84233;
+      --accent-light: #FF6B5E;
+      --bg: #FFF8F0;
+      --bg-warm: #FFF1E6;
+      --card: #FFFFFF;
+      --text: #2D2D2D;
+      --text-light: #888888;
+      --text-lighter: #BBBBBB;
+      --shadow: rgba(255,107,53,0.12);
+      --shadow-strong: rgba(255,107,53,0.25);
+      --border: #F0E6DC;
+      --success: #4CAF50;
+      --danger: #E84233;
+      --tag-bg: #FFF1E6;
+      --tag-active: #FF6B35;
+      --meal-breakfast: #FFB347;
+      --meal-lunch: #FF6B35;
+      --meal-tea: #FF8FAB;
+      --meal-dinner: #E84233;
+      --meal-supper: #7B68EE;
+      --cat-soup: #4CAF50;
+      --cat-staple: #FF9800;
+      --cat-dish: #F44336;
+      --cat-dessert: #E91E63;
+      --cat-fruit: #8BC34A;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html{font-size:16px;scroll-behavior:smooth}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    /* ===== Step Indicator ===== */
+    .step-indicator{position:fixed;top:0;left:0;right:0;z-index:200;background:linear-gradient(135deg,var(--primary),var(--accent));padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:0;color:#fff;box-shadow:0 2px 12px var(--shadow-strong);transition:opacity .3s}
+    .step-indicator.hidden{opacity:0;pointer-events:none}
+    .step-dot{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;transition:all .3s}
+    .step-dot.active{background:#fff;color:var(--primary);transform:scale(1.15);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+    .step-dot.done{background:rgba(255,255,255,.7);color:var(--primary)}
+    .step-line{width:36px;height:2px;background:rgba(255,255,255,.3);transition:background .3s}
+    .step-line.done{background:rgba(255,255,255,.7)}
+
+    /* ===== Step Pages ===== */
+    .step-page{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column;overflow-y:auto;padding-top:52px;transition:transform .4s cubic-bezier(.4,0,.2,1),opacity .4s}
+    .step-page.active{display:flex}
+    .step-page.slide-in-right{display:flex;animation:slideInRight .4s ease forwards}
+    .step-page.slide-out-left{display:flex;animation:slideOutLeft .4s ease forwards}
+    .step-page.slide-in-left{display:flex;animation:slideInLeft .4s ease forwards}
+    .step-page.slide-out-right{display:flex;animation:slideOutRight .4s ease forwards}
+    @keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes slideOutLeft{from{transform:translateX(0);opacity:1}to{transform:translateX(-30%);opacity:0}}
+    @keyframes slideInLeft{from{transform:translateX(-30%);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+    /* ===== Step 1: Meal + People ===== */
+    .step1-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:20px 16px 32px}
+    .step1-title{font-size:1.6rem;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .step1-subtitle{font-size:.9rem;color:var(--text-light);margin-bottom:24px}
+    .meal-section{width:100%;max-width:400px;margin-bottom:24px}
+    .meal-section-label{font-size:.85rem;color:var(--text-light);margin-bottom:10px;text-align:center}
+    .meal-cards{display:flex;gap:8px;overflow-x:auto;padding:4px 0;-webkit-overflow-scrolling:touch}
+    .meal-card2{flex:0 0 auto;min-width:62px;padding:10px 6px;border-radius:14px;text-align:center;cursor:pointer;background:var(--tag-bg);border:2px solid transparent;transition:all .3s;user-select:none}
+    .meal-card2.active{border-color:var(--primary);background:linear-gradient(135deg,var(--primary-light),var(--primary));color:#fff;transform:scale(1.08);box-shadow:0 4px 14px var(--shadow-strong)}
+    .meal-card2 .mc-emoji{font-size:1.4rem;margin-bottom:2px}
+    .meal-card2 .mc-name{font-size:.75rem;font-weight:600}
+    .meal-card2:not(.active):active{transform:scale(.95)}
+
+    .people-section{width:100%;max-width:400px;margin-bottom:24px}
+    .people-section-label{font-size:.85rem;color:var(--text-light);margin-bottom:10px;text-align:center}
+    .stick-figures-area{display:flex;align-items:flex-end;justify-content:center;min-height:70px;gap:6px;flex-wrap:wrap;margin-bottom:8px;padding:8px 4px}
+    .stick-figure{display:inline-flex;flex-direction:column;align-items:center;margin:0 2px;transition:all .4s}
+    .stick-figure.walk-in{animation:walkIn .5s ease-out forwards}
+    .stick-figure.walk-out{animation:walkOut .5s ease-in forwards}
+    @keyframes walkIn{0%{transform:translateX(50px);opacity:0}50%{transform:translateX(-4px);opacity:1}100%{transform:translateX(0);opacity:1}}
+    @keyframes walkOut{0%{transform:translateX(0);opacity:1}50%{transform:translateX(4px);opacity:1}100%{transform:translateX(-50px);opacity:0;height:0;margin:0;padding:0;overflow:hidden}}
+    .sf-head{width:16px;height:16px;border:2.5px solid var(--primary);border-radius:50%;background:#FFF1E6;position:relative}
+    .sf-head::after{content:'‿';position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--primary);line-height:1}
+    .sf-body{width:2.5px;height:14px;background:var(--primary);margin:0 auto}
+    .sf-arms{width:20px;height:2.5px;background:var(--primary);margin:-10px auto 0;border-radius:2px}
+    .sf-legs{display:flex;gap:8px;margin-top:-1px}
+    .sf-leg{width:2.5px;height:10px;background:var(--primary);border-radius:0 0 1px 1px}
+    .sf-leg:first-child{transform:rotate(8deg)}
+    .sf-leg:last-child{transform:rotate(-8deg)}
+    .sf-colors .sf-head{border-color:var(--c)}
+    .sf-colors .sf-body,.sf-colors .sf-arms,.sf-colors .sf-leg{background:var(--c)}
+    .sf-colors .sf-head::after{color:var(--c)}
+    .sf-bounce{animation:bounce 2s ease-in-out infinite}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+    .people-controls{display:flex;align-items:center;justify-content:center;gap:16px}
+    .people-btn{width:40px;height:40px;border-radius:50%;border:2.5px solid var(--primary);background:#fff;color:var(--primary);font-size:1.3rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+    .people-btn:active{background:var(--primary);color:#fff;transform:scale(.92)}
+    .people-btn:disabled{border-color:var(--text-lighter);color:var(--text-lighter);cursor:not-allowed}
+    .people-count-display{font-size:1.1rem;font-weight:700;color:var(--primary)}
+
+    .next-step-btn{display:flex;align-items:center;gap:8px;padding:14px 48px;border:none;border-radius:28px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px var(--shadow-strong);transition:all .3s;letter-spacing:1px;margin-top:auto}
+    .next-step-btn:active{transform:scale(.96)}
+    .next-step-btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* ===== Step 2: Cook or Takeout ===== */
+    .step2-content{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px;gap:20px;position:relative}
+    .step2-title{font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:8px}
+    .choice-cards{display:flex;gap:16px;width:100%;max-width:400px}
+    .choice-card{flex:1;padding:28px 16px;border-radius:20px;background:var(--card);border:2.5px solid var(--border);cursor:pointer;text-align:center;transition:all .3s;box-shadow:0 2px 10px var(--shadow)}
+    .choice-card:active{transform:scale(.96)}
+    .choice-card:hover{border-color:var(--primary);box-shadow:0 4px 20px var(--shadow-strong)}
+    .choice-card .cc-emoji{font-size:3rem;margin-bottom:8px}
+    .choice-card .cc-title{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+    .choice-card .cc-desc{font-size:.78rem;color:var(--text-light)}
+
+    /* ===== Step 3: Ingredients ===== */
+    .step3-content{flex:1;display:flex;flex-direction:column;align-items:center;padding:20px 16px;position:relative}
+    .step3-title{font-size:1.3rem;font-weight:700;margin-bottom:20px}
+    .ingredient-choice{display:flex;gap:12px;margin-bottom:20px}
+    .ing-choice-btn{padding:12px 24px;border-radius:18px;background:var(--tag-bg);border:2px solid var(--border);font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s}
+    .ing-choice-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .ing-choice-btn:active{transform:scale(.96)}
+    .ingredient-wall{width:100%;max-width:400px;max-height:0;overflow:hidden;transition:max-height .4s ease}
+    .ingredient-wall.open{max-height:800px}
+    .ingredient-search{margin-bottom:10px;position:relative}
+    .ingredient-search input{width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:10px;font-size:.85rem;outline:none;background:var(--bg)}
+    .ingredient-search input:focus{border-color:var(--primary)}
+    .ingredient-search::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem}
+    .ingredient-groups{padding:0 0 12px}
+    .ingredient-group{margin-bottom:8px}
+    .ingredient-group-title{font-size:.75rem;color:var(--text-light);margin-bottom:6px;font-weight:600;letter-spacing:.5px}
+    .ingredient-tags{display:flex;flex-wrap:wrap;gap:6px}
+    .ingredient-tag{padding:5px 12px;border-radius:16px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.78rem;cursor:pointer;transition:all .2s;user-select:none;color:var(--text)}
+    .ingredient-tag:active{transform:scale(.95)}
+    .ingredient-tag.selected{background:var(--tag-active);color:#fff;border-color:var(--tag-active)}
+    .ingredient-tag.hidden{display:none}
+    .step3-next{margin-top:auto;padding-top:16px}
+
+    /* ===== Step 4: Recommendations ===== */
+    #stepPage4{padding-top:0!important}
+    .step4-header{position:sticky;top:0;z-index:90;background:linear-gradient(135deg,var(--primary),var(--accent));padding:10px 16px;display:flex;align-items:center;justify-content:space-between;color:#fff;box-shadow:0 2px 12px var(--shadow-strong)}
+    .step4-header-left{display:flex;align-items:center;gap:8px}
+    .refresh-all-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:4px 12px;border-radius:14px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .refresh-all-btn:active{background:rgba(255,255,255,.35);transform:scale(.95)}
+    .step4-header h1{font-size:1.1rem;font-weight:700}
+    .step4-header-btns{display:flex;gap:10px}
+    .h4-btn{background:rgba(255,255,255,.2);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:background .2s}
+    .h4-btn:hover{background:rgba(255,255,255,.35)}
+    .h4-btn:active{transform:scale(.92)}
+
+    .rec-content{padding:12px;padding-bottom:80px}
+    .category-grid{display:grid;gap:12px}
+    .category-grid.cols-2{grid-template-columns:1fr 1fr}
+    .category-grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+    @media(max-width:420px){.category-grid.cols-3{grid-template-columns:1fr 1fr}}
+
+    .cat-card{background:var(--card);border-radius:16px;box-shadow:0 2px 12px var(--shadow);overflow:hidden;transition:all .3s;position:relative}
+    .cat-card.disabled{opacity:.45;filter:grayscale(.6)}
+    .cat-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;position:relative}
+    .cat-card-title{display:flex;align-items:center;gap:6px;font-size:.95rem;font-weight:700}
+    .cat-card-title .cat-icon{font-size:1.1rem}
+    .cat-toggle{width:28px;height:28px;border-radius:50%;border:2.5px solid #ccc;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;transition:all .3s}
+    .cat-toggle.on{background:var(--success);border-color:var(--success)}
+    .cat-toggle.off{background:var(--danger);border-color:var(--danger)}
+
+    .cat-card-body{padding:0 12px 8px}
+    .dish-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);position:relative}
+    .dish-item:last-child{border-bottom:none}
+    .dish-item-img{width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;cursor:pointer;position:relative;background:var(--tag-bg)}
+    .dish-item-img img{width:100%;height:100%;object-fit:cover;display:block}
+    .dish-item-img .img-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+    .dish-item-info{flex:1;min-width:0}
+    .dish-item-name{font-size:.85rem;font-weight:700;line-height:1.3;cursor:pointer}
+    .dish-item-name:hover{color:var(--primary)}
+    .dish-item-meta{display:flex;flex-direction:column;gap:1px;margin-top:2px}
+    .dish-item-meta span{font-size:.65rem;color:var(--text-light);line-height:1.3}
+    .dish-item-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+    .dish-tag-s{font-size:.58rem;padding:1px 5px;border-radius:6px;background:var(--tag-bg);color:var(--primary)}
+    .dish-delete{position:absolute;top:6px;right:0;width:18px;height:18px;border-radius:50%;background:transparent;border:none;color:var(--text-lighter);font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;opacity:0;z-index:5}
+    .dish-item:hover .dish-delete,.dish-delete.show{opacity:1}
+    .dish-delete:hover{background:var(--danger);color:#fff;opacity:1}
+
+    .cat-card-footer{padding:6px 12px 10px;display:flex;gap:8px;justify-content:center}
+    .refresh-cat-btn{background:none;border:1.5px solid var(--border);border-radius:12px;padding:5px 16px;font-size:.78rem;color:var(--text-light);cursor:pointer;transition:all .2s}
+    .refresh-cat-btn:active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .add-dish-btn{background:none;border:1.5px solid var(--primary);border-radius:12px;padding:5px 16px;font-size:.78rem;color:var(--primary);cursor:pointer;transition:all .2s}
+    .add-dish-btn:active{background:var(--primary);color:#fff}
+
+    /* ===== Nutrition Overview ===== */
+    .nutrition-bar{margin:16px 0 8px;padding:14px 16px;background:var(--card);border-radius:14px;box-shadow:0 2px 8px var(--shadow)}
+    .nutrition-title{font-size:.85rem;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .nutri-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+    .nutri-row:last-child{margin-bottom:0}
+    .nutri-label{font-size:.72rem;color:var(--text-light);width:42px;flex-shrink:0}
+    .nutri-bars{flex:1;display:flex;flex-direction:column;gap:3px}
+    .nutri-bar-line{display:flex;align-items:center;gap:4px;position:relative}
+    .nutri-bar-hint{font-size:.5rem;color:var(--text-lighter);width:24px;flex-shrink:0;text-align:right}
+    .nutri-bar-bg{flex:1;height:7px;background:var(--tag-bg);border-radius:4px;overflow:visible;position:relative}
+    .nutri-meal-line{position:absolute;top:-4px;bottom:-4px;width:2px;background:repeating-linear-gradient(to bottom,var(--primary) 2px,transparent 2px,transparent 4px);z-index:2;pointer-events:none;opacity:.7}
+    .nutri-meal-label{position:absolute;top:-12px;transform:translateX(-50%);font-size:.48rem;color:var(--primary);white-space:nowrap;pointer-events:none;font-weight:600}
+    .nutri-bar-fill{height:100%;border-radius:4px;transition:width .5s ease;position:relative}
+    .nutri-bar-daily-fill{background:linear-gradient(90deg,#ccc,#ddd)!important;opacity:.5}
+    .nutri-val{display:flex;flex-direction:column;gap:1px;width:110px;text-align:right;flex-shrink:0}
+    .nutri-val-meal{font-size:.72rem;font-weight:600;line-height:1.2}
+    .nutri-val-daily{font-size:.62rem;color:var(--text-lighter);line-height:1.2}
+    .nutri-meal-ok{color:#4CAF50}.nutri-meal-low{color:#FF9800}.nutri-meal-over{color:#E84233}
+    .nutri-protein .nutri-bar-fill:not(.nutri-bar-daily-fill){background:linear-gradient(90deg,#4CAF50,#66BB6A)}
+    .nutri-carbs .nutri-bar-fill:not(.nutri-bar-daily-fill){background:linear-gradient(90deg,#FF9800,#FFB74D)}
+    .nutri-fat .nutri-bar-fill:not(.nutri-bar-daily-fill){background:linear-gradient(90deg,#F44336,#EF5350)}
+
+    /* ===== Shopping List ===== */
+    .shopping-list{margin:0 0 10px;padding:12px 14px;background:var(--card);border-radius:14px;box-shadow:0 2px 8px var(--shadow)}
+    .shopping-title{font-size:.82rem;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .shopping-tags{display:flex;flex-wrap:wrap;gap:6px}
+    .shop-tag{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:12px;background:var(--tag-bg);border:1px solid var(--border);font-size:.72rem;color:var(--text);transition:all .2s}
+    .shop-tag .shop-count{color:var(--primary);font-weight:700;font-size:.68rem}
+    .shop-tag-x{width:16px;height:16px;border-radius:50%;background:transparent;border:none;color:var(--text-lighter);font-size:.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;padding:0;flex-shrink:0}
+    .shop-tag-x:hover{background:var(--danger);color:#fff}
+
+    /* ===== Ingredient Action Modal ===== */
+    .ing-action-modal{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+    .ing-action-modal.show{display:flex}
+    .ing-action-sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 16px 32px;animation:slideUp .3s ease}
+    .ing-action-title{font-size:1rem;font-weight:700;text-align:center;margin-bottom:16px;color:var(--text)}
+    .ing-action-options{display:flex;flex-direction:column;gap:10px}
+    .ing-action-option{padding:12px 16px;border-radius:12px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.88rem;cursor:pointer;transition:all .2s;text-align:center}
+    .ing-action-option:active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .ing-action-option.danger{color:var(--danger);border-color:rgba(232,66,51,.3)}
+    .ing-action-option.danger:active{background:var(--danger);color:#fff}
+    .ing-action-skip{margin-top:10px;text-align:center;color:var(--text-lighter);font-size:.85rem;cursor:pointer;padding:8px}
+
+    /* ===== Nutrition Adjuster ===== */
+    .nutrition-adjust-btn{display:flex;align-items:center;gap:6px;margin-top:10px;padding:7px 14px;border-radius:10px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.78rem;color:var(--text-light);cursor:pointer;transition:all .2s}
+    .nutrition-adjust-btn:hover{border-color:var(--primary);color:var(--primary)}
+    .nutrition-adjust-btn:active{transform:scale(.96)}
+    .nutrition-adjust-panel{margin-top:8px;padding:14px;background:var(--card);border-radius:14px;box-shadow:0 2px 8px var(--shadow);display:none;border:1px solid var(--border)}
+    .nutrition-adjust-panel.open{display:block;animation:fadeIn .3s ease}
+    .nap-title{font-size:.82rem;font-weight:700;margin-bottom:10px;color:var(--text)}
+    .nap-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .nap-preset{padding:5px 12px;border-radius:12px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.72rem;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .nap-preset:hover{border-color:var(--primary)}
+    .nap-preset.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .nap-slider-group{margin-bottom:10px}
+    .nap-slider-group:last-child{margin-bottom:0}
+    .nap-slider-label{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--text-light);margin-bottom:4px}
+    .nap-slider-label span:last-child{font-weight:600;color:var(--text)}
+    .nap-slider{width:100%;height:6px;-webkit-appearance:none;appearance:none;background:var(--tag-bg);border-radius:3px;outline:none}
+    .nap-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 1px 4px var(--shadow-strong)}
+    .nap-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--primary);cursor:pointer;border:none}
+
+    /* ===== Sidebar ===== */
+    .sidebar-overlay{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.4);display:none;opacity:0;transition:opacity .3s}
+    .sidebar-overlay.show{display:block;opacity:1}
+    .sidebar{position:fixed;top:0;right:0;bottom:0;z-index:301;width:280px;max-width:85vw;background:var(--card);box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+    .sidebar.show{transform:translateX(0)}
+    .sidebar-head{padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+    .sidebar-head h3{font-size:1rem;font-weight:700}
+    .sidebar-close{width:30px;height:30px;border-radius:50%;background:var(--tag-bg);border:none;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .sidebar-body{padding:16px;flex:1;overflow-y:auto}
+    .sb-section{margin-bottom:20px}
+    .sb-label{font-size:.82rem;color:var(--text-light);margin-bottom:8px;font-weight:600}
+    .sb-meal-cards{display:flex;gap:6px;flex-wrap:wrap}
+    .sb-meal{padding:6px 12px;border-radius:10px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.78rem;cursor:pointer;transition:all .2s}
+    .sb-meal.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .sb-people{display:flex;align-items:center;gap:12px}
+    .sb-people-btn{width:32px;height:32px;border-radius:50%;border:2px solid var(--primary);background:#fff;color:var(--primary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+    .sb-people-btn:active{background:var(--primary);color:#fff}
+    .sb-people-val{font-size:1.2rem;font-weight:700;color:var(--primary)}
+    .sb-hint{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bg-warm);font-size:.8rem;color:var(--text);line-height:1.4;display:none}
+    .sb-hint.show{display:block}
+    .sb-hint-actions{display:flex;gap:8px;margin-top:8px}
+    .sb-hint-btn{padding:6px 14px;border-radius:10px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+    .sb-hint-btn:active{transform:scale(.95)}
+    .sb-hint-btn.primary{background:var(--primary);color:#fff}
+    .sb-hint-btn.secondary{background:var(--tag-bg);color:var(--text)}
+
+    /* ===== Recipe Modal ===== */
+    .modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+    .modal-overlay.show{display:flex}
+    .modal-sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:75vh;padding:20px 16px 32px;overflow-y:auto;animation:slideUp .3s ease}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .recipe-close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;background:var(--tag-bg);border:none;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .recipe-img-area{text-align:center;margin-bottom:12px}
+    .recipe-img-area img{width:100%;max-height:200px;object-fit:cover;border-radius:14px}
+    .recipe-img-area .r-fallback{font-size:4rem}
+    .recipe-title{font-size:1.1rem;font-weight:700;margin-bottom:4px;padding-right:36px}
+    .recipe-desc{font-size:.85rem;color:var(--text-light);margin-bottom:12px}
+    .recipe-nutrition{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    .rn-chip{padding:4px 10px;border-radius:10px;font-size:.72rem;font-weight:600}
+    .rn-cal{background:#FFF3E0;color:#E65100}
+    .rn-pro{background:#E8F5E9;color:#2E7D32}
+    .rn-carb{background:#FFF8E1;color:#F57F17}
+    .rn-fat{background:#FFEBEE;color:#C62828}
+    .rn-time{background:#E3F2FD;color:#1565C0}
+    .recipe-ingredients{margin-bottom:12px}
+    .recipe-ingredients h4{font-size:.85rem;margin-bottom:6px;color:var(--primary)}
+    .recipe-ingredients .tags{display:flex;flex-wrap:wrap;gap:4px}
+    .recipe-ingredients .tags span{padding:2px 8px;border-radius:8px;background:var(--tag-bg);font-size:.75rem;color:var(--text)}
+    .recipe-steps h4{font-size:.85rem;margin-bottom:6px;color:var(--primary)}
+    .recipe-steps p{font-size:.82rem;line-height:1.6;color:var(--text)}
+
+    /* ===== Feedback Modal ===== */
+    .feedback-modal{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+    .feedback-modal.show{display:flex}
+    .feedback-sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 16px 32px;animation:slideUp .3s ease}
+    .feedback-title{font-size:1rem;font-weight:700;text-align:center;margin-bottom:16px;color:var(--text)}
+    .feedback-options{display:flex;flex-direction:column;gap:10px}
+    .feedback-option{padding:12px 16px;border-radius:12px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.9rem;cursor:pointer;transition:all .2s;text-align:center}
+    .feedback-option:active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .feedback-skip{margin-top:10px;text-align:center;color:var(--text-lighter);font-size:.85rem;cursor:pointer;padding:8px}
+
+    /* ===== Restrict Modal ===== */
+    .restrict-modal{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}
+    .restrict-modal.show{display:flex}
+    .restrict-panel{background:#fff;border-radius:20px;width:90%;max-width:400px;max-height:80vh;padding:20px;overflow-y:auto;animation:fadeIn .3s ease}
+    @keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+    .restrict-title{font-size:1.05rem;font-weight:700;text-align:center;margin-bottom:16px}
+    .restrict-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+    .restrict-tag{padding:6px 14px;border-radius:16px;background:var(--tag-bg);border:1.5px solid var(--border);font-size:.82rem;cursor:pointer;transition:all .2s}
+    .restrict-tag.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .restrict-custom{display:flex;gap:8px;margin-top:8px}
+    .restrict-custom input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:.85rem;outline:none}
+    .restrict-custom input:focus{border-color:var(--primary)}
+    .restrict-custom button{padding:8px 16px;border-radius:10px;background:var(--primary);color:#fff;border:none;font-size:.85rem;cursor:pointer}
+    .restrict-close{margin-top:16px;width:100%;padding:10px;border-radius:12px;background:var(--bg);border:none;font-size:.9rem;cursor:pointer;color:var(--text);font-weight:600}
+
+    /* ===== Takeout Toast ===== */
+    .takeout-toast{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
+    .takeout-toast.show{display:flex}
+    .takeout-box{background:#fff;border-radius:20px;padding:32px 24px;text-align:center;max-width:320px;width:90%;animation:fadeIn .3s ease}
+    .takeout-box .tb-emoji{font-size:3rem;margin-bottom:12px}
+    .takeout-box .tb-text{font-size:1rem;font-weight:600;margin-bottom:6px}
+    .takeout-box .tb-sub{font-size:.82rem;color:var(--text-light);margin-bottom:16px}
+    .takeout-box .tb-btn{padding:10px 28px;border-radius:20px;background:var(--primary);color:#fff;border:none;font-size:.9rem;font-weight:600;cursor:pointer}
+
+    /* ===== Toast ===== */
+    .toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:20px;background:rgba(0,0,0,.8);color:#fff;font-size:.85rem;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+    .toast.show{opacity:1}
+
+    /* ===== Comfort Banner ===== */
+    .comfort-banner{margin:0 12px 12px;padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,#7B68EE,#9B59B6);color:#fff;display:none;align-items:center;gap:10px}
+    .comfort-banner.show{display:flex}
+    .comfort-banner .ce{font-size:1.5rem}
+    .comfort-banner .ct{flex:1}
+    .comfort-banner .ct strong{display:block;font-size:.9rem}
+    .comfort-banner .ct span{font-size:.75rem;opacity:.85}
+    .comfort-banner .ca,.comfort-banner .cs{padding:6px 14px;border-radius:16px;border:none;font-size:.78rem;cursor:pointer;font-weight:600}
+    .comfort-banner .ca{background:#fff;color:#7B68EE}
+    .comfort-banner .cs{background:transparent;color:rgba(255,255,255,.7)}
+
+    /* ===== Back btn ===== */
+    .back-btn{position:absolute;top:8px;left:12px;z-index:10;width:34px;height:34px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 8px var(--shadow)}
+    .back-btn:active{transform:scale(.92)}
+
+    /* ===== Empty ===== */
+    .empty-state{text-align:center;padding:40px 20px;color:var(--text-light)}
+    .empty-state .ee{font-size:3rem;margin-bottom:12px}
+    .empty-state p{font-size:.9rem}
+
+    /* ===== Responsive ===== */
+    @media(min-width:480px){body{max-width:480px;margin:0 auto;box-shadow:0 0 30px rgba(0,0,0,.1)}}
+  </style>
+</head>
+<body>
+
+<!-- Step Indicator -->
+<div class="step-indicator" id="stepIndicator">
+  <div class="step-dot active" data-step="1">1</div><div class="step-line" id="line1"></div>
+  <div class="step-dot" data-step="2">2</div><div class="step-line" id="line2"></div>
+  <div class="step-dot" data-step="3">3</div><div class="step-line" id="line3"></div>
+  <div class="step-dot" data-step="4">4</div>
+</div>
+
+<!-- ====== STEP 1: Meal + People ====== -->
+<div class="step-page active" id="stepPage1">
+  <div class="step1-content">
+    <div class="step1-title">今天吃什么？</div>
+    <div class="step1-subtitle" id="step1Subtitle">现在是午餐时间 🌞</div>
+
+    <div class="meal-section">
+      <div class="meal-section-label">选择餐次</div>
+      <div class="meal-cards" id="mealCards"></div>
+    </div>
+
+    <div class="people-section">
+      <div class="people-section-label">用餐人数</div>
+      <div class="stick-figures-area" id="stickFigures"></div>
+      <div class="people-controls">
+        <button class="people-btn" id="peopleMinus" disabled>−</button>
+        <span class="people-count-display" id="peopleDisplay">1人用餐</span>
+        <button class="people-btn" id="peoplePlus">+</button>
+      </div>
+    </div>
+
+    <button class="next-step-btn" id="toStep2">下一步 →</button>
+  </div>
+</div>
+
+<!-- ====== STEP 2: Cook or Takeout ====== -->
+<div class="step-page" id="stepPage2">
+  <div class="step2-content">
+    <button class="back-btn" id="backTo1">←</button>
+    <div class="step2-title">想怎么做？</div>
+    <div class="choice-cards">
+      <div class="choice-card" id="chooseTakeout">
+        <div class="cc-emoji">🛵</div>
+        <div class="cc-title">叫外卖</div>
+        <div class="cc-desc">不想动手，外卖送到家</div>
+      </div>
+      <div class="choice-card" id="chooseCook">
+        <div class="cc-emoji">👨‍🍳</div>
+        <div class="cc-title">自己做</div>
+        <div class="cc-desc">亲手下厨，美味健康</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STEP 3: Ingredients ====== -->
+<div class="step-page" id="stepPage3">
+  <div class="step3-content">
+    <button class="back-btn" id="backTo2">←</button>
+    <div class="step3-title">家里有什么食材？</div>
+    <div class="ingredient-choice">
+      <button class="ing-choice-btn" id="ingHasSome">🏠 有食材</button>
+      <button class="ing-choice-btn active" id="ingNone">🤷 暂时没有</button>
+    </div>
+    <div class="ingredient-wall" id="ingredientWall">
+      <div class="ingredient-search"><input type="text" id="ingredientSearch" placeholder="搜索食材..."></div>
+      <div class="ingredient-groups" id="ingredientGroups"></div>
+    </div>
+    <div class="step3-next">
+      <button class="next-step-btn" id="toStep4">开始推荐 🎲</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STEP 4: Recommendations ====== -->
+<div class="step-page" id="stepPage4">
+  <header class="step4-header">
+    <div class="step4-header-left"><h1>🍽️ 今天吃什么</h1><button class="refresh-all-btn" id="btnRefreshAll">🔄 换一批</button></div>
+    <div class="step4-header-btns">
+      <button class="h4-btn" id="btnRestrictions" title="忌口设置">🚫</button>
+      <button class="h4-btn" id="btnSidebar" title="设置">⚙️</button>
+    </div>
+  </header>
+  <div class="rec-content" id="recContent">
+    <div class="empty-state"><div class="ee">🤔</div><p>加载中...</p></div>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-head"><h3>⚙️ 设置</h3><button class="sidebar-close" id="sidebarClose">✕</button></div>
+  <div class="sidebar-body">
+    <div class="sb-section">
+      <div class="sb-label">餐次</div>
+      <div class="sb-meal-cards" id="sbMealCards"></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">用餐人数</div>
+      <div class="sb-people">
+        <button class="sb-people-btn" id="sbPeopleMinus">−</button>
+        <span class="sb-people-val" id="sbPeopleVal">1人</span>
+        <button class="sb-people-btn" id="sbPeoplePlus">+</button>
+      </div>
+      <div class="sb-hint" id="sbHint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Recipe Modal -->
+<div class="modal-overlay" id="recipeModal">
+  <div class="modal-sheet" id="recipeSheet" style="position:relative"></div>
+</div>
+
+<!-- Feedback Modal -->
+<div class="feedback-modal" id="feedbackModal">
+  <div class="feedback-sheet">
+    <div class="feedback-title" id="feedbackTitle"></div>
+    <div class="feedback-options" id="feedbackOptions"></div>
+    <div class="feedback-skip" id="feedbackSkip">跳过，随便换一个</div>
+  </div>
+</div>
+
+<!-- Restrict Modal -->
+<div class="restrict-modal" id="restrictModal">
+  <div class="restrict-panel">
+    <div class="restrict-title">🚫 忌口设置</div>
+    <div class="restrict-tags" id="restrictTags"></div>
+    <div class="restrict-custom">
+      <input type="text" id="restrictCustomInput" placeholder="自定义忌口项...">
+      <button id="restrictCustomAdd">添加</button>
+    </div>
+    <button class="restrict-close" id="restrictClose">确定</button>
+  </div>
+</div>
+
+<!-- Takeout Toast -->
+<div class="takeout-toast" id="takeoutToast">
+  <div class="takeout-box">
+    <div class="tb-emoji">🛵</div>
+    <div class="tb-text">请打开手机上的外卖App</div>
+    <div class="tb-sub">选择你喜欢的餐厅下单吧～</div>
+    <button class="tb-btn" id="takeoutOk">好的</button>
+  </div>
+</div>
+
+<!-- Comfort Banner Template -->
+<div class="comfort-banner" id="comfortBanner">
+  <span class="ce">✨</span>
+  <div class="ct"><strong>今天来点不一样的？</strong><span id="comfortDishName">—</span></div>
+  <button class="ca" id="comfortAccept">试试</button>
+  <button class="cs" id="comfortSkip">下次吧</button>
+</div>
+
+<!-- Ingredient Action Modal -->
+<div class="ing-action-modal" id="ingActionModal">
+  <div class="ing-action-sheet">
+    <div class="ing-action-title" id="ingActionTitle"></div>
+    <div class="ing-action-options" id="ingActionOptions"></div>
+    <div class="ing-action-skip" id="ingActionCancel">取消</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== DISH DATABASE ==========
+const SF_COLORS = ['#FF6B35','#4CAF50','#2196F3','#9C27B0','#E91E63','#FF9800','#00BCD4','#795548'];
+
+const DISHES = [
+  // ---- 汤品 soup ----
+  {id:1,name:'皮蛋瘦肉粥',cat:'soup',ingredients:['皮蛋','瘦肉','大米'],tags:['清淡','家常','慢炖'],meals:['breakfast'],people:[1,4],desc:'经典广式粥品，绵密鲜香',steps:'大米浸泡→大火煮开转小火→加皮蛋瘦肉丝→熬至浓稠调味',cal:180,protein:12,carbs:22,fat:5,cookTime:40,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:2,name:'小米粥',cat:'soup',ingredients:['小米','红枣','枸杞'],tags:['清淡','养生','快手'],meals:['breakfast'],people:[1,6],desc:'暖胃养生，金黄浓香',steps:'小米洗净→加水大火煮开→小火熬30分钟→加红枣枸杞',cal:120,protein:4,carbs:24,fat:2,cookTime:35,img:'photo-1476718406336-bb5a9690ee2a',servings:2},
+  {id:12,name:'红豆粥',cat:'soup',ingredients:['红豆','大米','冰糖'],tags:['清淡','养生'],meals:['breakfast','tea'],people:[1,4],desc:'甜糯绵密，暖身养心',steps:'红豆泡发→加水煮烂→加大米熬粥→加冰糖',cal:150,protein:5,carbs:30,fat:1,cookTime:50,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+  {id:13,name:'银耳莲子羹',cat:'soup',ingredients:['银耳','莲子','红枣','冰糖'],tags:['清淡','养生','慢炖'],meals:['breakfast','tea'],people:[1,4],desc:'滋润养颜，甜而不腻',steps:'银耳泡发→加莲子红枣→小火慢炖1小时→加冰糖',cal:90,protein:2,carbs:18,fat:1,cookTime:60,img:'photo-1476718406336-bb5a9690ee2a',servings:2},
+  {id:35,name:'番茄蛋汤',cat:'soup',ingredients:['番茄','鸡蛋'],tags:['清淡','快手','家常'],meals:['lunch','dinner'],people:[1,6],desc:'国民汤品，酸甜开胃',steps:'番茄炒出汁→加水煮开→淋蛋液→调味',cal:80,protein:6,carbs:8,fat:4,cookTime:10,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:36,name:'紫菜蛋花汤',cat:'soup',ingredients:['紫菜','鸡蛋'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,6],desc:'快速汤品，鲜美简单',steps:'水煮开→加紫菜→淋蛋液→调味',cal:60,protein:5,carbs:4,fat:3,cookTime:8,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+  {id:37,name:'酸辣汤',cat:'soup',ingredients:['豆腐','木耳','鸡蛋','醋'],tags:['辣','快手'],meals:['lunch','dinner'],people:[1,6],desc:'酸辣开胃，暖身醒神',steps:'煮配料→调味→勾芡→淋蛋液',cal:90,protein:6,carbs:10,fat:3,cookTime:15,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:38,name:'冬瓜排骨汤',cat:'soup',ingredients:['排骨','冬瓜','姜'],tags:['清淡','慢炖'],meals:['lunch','dinner'],people:[2,6],desc:'汤清味鲜，消暑去湿',steps:'排骨焯水→加姜炖1小时→加冬瓜→调味',cal:160,protein:14,carbs:8,fat:8,cookTime:70,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:45,name:'玉米排骨汤',cat:'soup',ingredients:['排骨','玉米','胡萝卜'],tags:['清淡','慢炖','养生'],meals:['lunch','dinner'],people:[2,6],desc:'甜糯鲜香，营养丰富',steps:'排骨焯水→加玉米炖1小时→调味',cal:170,protein:13,carbs:14,fat:7,cookTime:70,img:'photo-1583608354155-2b1f932bfabb',servings:3},
+  {id:72,name:'莲藕排骨汤',cat:'soup',ingredients:['排骨','莲藕','姜'],tags:['清淡','慢炖','养生'],meals:['dinner'],people:[2,6],desc:'莲藕软糯，汤鲜味美',steps:'排骨焯水→加莲藕炖1小时→调味',cal:165,protein:13,carbs:12,fat:7,cookTime:70,img:'photo-1547592166-23ac45744acd',servings:3},
+  {id:73,name:'山药鸡汤',cat:'soup',ingredients:['鸡','山药','枸杞','姜'],tags:['清淡','慢炖','养生'],meals:['dinner'],people:[2,8],desc:'滋补养生，汤浓味鲜',steps:'鸡焯水→加姜炖1小时→加山药枸杞→调味',cal:180,protein:16,carbs:10,fat:8,cookTime:80,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:74,name:'鲫鱼豆腐汤',cat:'soup',ingredients:['鲫鱼','豆腐','姜'],tags:['清淡','家常'],meals:['dinner'],people:[2,4],desc:'汤白如奶，鲜美无比',steps:'鱼煎两面→加水煮开→加豆腐炖20分钟',cal:140,protein:15,carbs:5,fat:6,cookTime:30,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+  {id:75,name:'萝卜牛腩汤',cat:'soup',ingredients:['牛腩','白萝卜','姜'],tags:['清淡','慢炖'],meals:['dinner'],people:[2,6],desc:'萝卜甜软，牛腩酥烂',steps:'牛腩焯水→炖1小时→加萝卜→调味',cal:190,protein:17,carbs:8,fat:9,cookTime:90,img:'photo-1547592166-23ac45744acd',servings:3},
+  {id:99,name:'蛋花玉米羹',cat:'soup',ingredients:['玉米','鸡蛋','淀粉'],tags:['清淡','快手'],meals:['lunch','dinner','breakfast'],people:[1,4],desc:'细腻顺滑，甜香暖胃',steps:'玉米煮开→勾芡→淋蛋液→调味',cal:100,protein:5,carbs:14,fat:3,cookTime:12,img:'photo-1476718406336-bb5a9690ee2a',servings:2},
+  {id:100,name:'南瓜粥',cat:'soup',ingredients:['南瓜','大米'],tags:['清淡','养生'],meals:['breakfast','dinner'],people:[1,4],desc:'甜糯绵滑，养胃佳品',steps:'南瓜切块→加大米煮→熬至浓稠',cal:110,protein:3,carbs:22,fat:1,cookTime:35,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+  {id:46,name:'芒果西米露',cat:'soup',ingredients:['芒果','西米','椰奶'],tags:['清淡','快手'],meals:['tea'],people:[1,4],desc:'热带风味，甜蜜清凉',steps:'煮西米→加椰奶→加芒果丁',cal:200,protein:3,carbs:35,fat:6,cookTime:20,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+  {id:48,name:'奶茶',cat:'soup',ingredients:['红茶','牛奶','糖'],tags:['清淡','快手'],meals:['tea'],people:[1,2],desc:'丝滑醇香，午后标配',steps:'煮茶→加牛奶→调味',cal:120,protein:4,carbs:16,fat:4,cookTime:8,img:'photo-1556679343-c7306c1976bc',servings:2},
+  {id:49,name:'柠檬茶',cat:'soup',ingredients:['柠檬','红茶','蜂蜜'],tags:['清淡','快手'],meals:['tea'],people:[1,2],desc:'清爽解腻，维C满满',steps:'泡红茶→加柠檬片→加蜂蜜',cal:60,protein:0,carbs:14,fat:0,cookTime:5,img:'photo-1556679343-c7306c1976bc',servings:2},
+  {id:200,name:'海带豆腐汤',cat:'soup',ingredients:['海带','豆腐','姜'],tags:['清淡','快手','养生'],meals:['lunch','dinner'],people:[1,4],desc:'清热解腻，碘钙双补',steps:'海带泡发→加水煮开→加豆腐块→调味',cal:70,protein:5,carbs:6,fat:3,cookTime:15,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:201,name:'菠菜猪肝汤',cat:'soup',ingredients:['猪肝','菠菜','姜'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'补铁养血，明目润燥',steps:'猪肝切片腌制→水煮开→下猪肝→加菠菜调味',cal:130,protein:14,carbs:6,fat:5,cookTime:12,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:202,name:'当归羊肉汤',cat:'soup',ingredients:['羊肉','当归','姜','红枣'],tags:['清淡','慢炖','养生'],meals:['dinner'],people:[2,6],desc:'驱寒暖身，秋冬必喝',steps:'羊肉焯水→加当归姜红枣→炖1.5小时→调味',cal:200,protein:18,carbs:6,fat:10,cookTime:90,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:203,name:'菌菇鸡汤',cat:'soup',ingredients:['鸡','香菇','茶树菇','姜'],tags:['清淡','慢炖','养生'],meals:['dinner'],people:[2,6],desc:'菌香浓郁，滋补养身',steps:'鸡焯水→加菌菇姜→炖1.5小时→调味',cal:170,protein:16,carbs:8,fat:8,cookTime:90,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:204,name:'西红柿牛腩汤',cat:'soup',ingredients:['牛腩','番茄','土豆'],tags:['家常','慢炖'],meals:['lunch','dinner'],people:[2,6],desc:'酸甜浓郁，牛腩酥烂',steps:'牛腩焯水→加番茄炖1.5小时→加土豆→调味',cal:195,protein:16,carbs:12,fat:9,cookTime:100,img:'photo-1547592166-23ac45744acd',servings:3},
+  {id:205,name:'三鲜汤',cat:'soup',ingredients:['鸡蛋','香菇','虾仁','豆腐'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鲜味十足，营养丰富',steps:'煮香菇虾仁→加豆腐→淋蛋液→调味',cal:110,protein:10,carbs:6,fat:5,cookTime:12,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:206,name:'黄芪乌鸡汤',cat:'soup',ingredients:['乌鸡','黄芪','红枣','枸杞'],tags:['清淡','慢炖','养生'],meals:['dinner'],people:[2,6],desc:'补气养血，增强体质',steps:'乌鸡焯水→加黄芪红枣→炖1.5小时→加枸杞调味',cal:175,protein:17,carbs:8,fat:8,cookTime:90,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:207,name:'木瓜排骨汤',cat:'soup',ingredients:['排骨','木瓜','花生'],tags:['清淡','慢炖'],meals:['lunch','dinner'],people:[2,6],desc:'清甜滋润，养颜润肤',steps:'排骨焯水→加花生炖1小时→加木瓜→调味',cal:175,protein:14,carbs:12,fat:8,cookTime:70,img:'photo-1583608354155-2b1f932bfabb',servings:3},
+  {id:208,name:'黄豆猪蹄汤',cat:'soup',ingredients:['猪蹄','黄豆','姜'],tags:['慢炖','养生'],meals:['dinner'],people:[2,6],desc:'满满胶原蛋白，养颜润肤',steps:'黄豆泡发→猪蹄焯水→加姜炖2小时→调味',cal:220,protein:18,carbs:10,fat:12,cookTime:120,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:209,name:'丝瓜蛋汤',cat:'soup',ingredients:['丝瓜','鸡蛋'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'清淡爽口，夏日必喝',steps:'丝瓜切块→加水煮开→淋蛋液→调味',cal:65,protein:5,carbs:6,fat:3,cookTime:8,img:'photo-1547592166-23ac45744acd',servings:2},
+  {id:210,name:'老鸭笋干汤',cat:'soup',ingredients:['老鸭','笋干','姜'],tags:['清淡','慢炖'],meals:['dinner'],people:[2,6],desc:'鲜香醇厚，滋阴去火',steps:'鸭焯水→加笋干姜→炖2小时→调味',cal:185,protein:16,carbs:8,fat:9,cookTime:120,img:'photo-1476718406336-bb5a9690ee2a',servings:3},
+  {id:211,name:'冰糖雪梨汤',cat:'soup',ingredients:['雪梨','冰糖','枸杞'],tags:['清淡','快手','养生'],meals:['tea','dinner'],people:[1,4],desc:'润肺止咳，清甜滋润',steps:'雪梨切块→加水煮20分钟→加冰糖枸杞',cal:80,protein:1,carbs:18,fat:0,cookTime:25,img:'photo-1476718406336-bb5a9690ee2a',servings:2},
+  {id:212,name:'花蛤豆腐汤',cat:'soup',ingredients:['花蛤','豆腐','姜','葱'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鲜美无比，花蛤嫩滑',steps:'花蛤吐沙→水煮开→下花蛤豆腐→调味',cal:95,protein:9,carbs:5,fat:4,cookTime:10,img:'photo-1583608354155-2b1f932bfabb',servings:2},
+
+  // ---- 主食 staple ----
+  {id:3,name:'豆浆油条',cat:'staple',ingredients:['黄豆','面粉'],tags:['家常','快手'],meals:['breakfast'],people:[1,2],desc:'国民早餐搭档',steps:'黄豆泡发打浆→煮开→油条炸制金黄',cal:280,protein:10,carbs:38,fat:10,cookTime:20,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:5,name:'葱油饼',cat:'staple',ingredients:['面粉','小葱','油'],tags:['油腻','家常','快手'],meals:['breakfast','lunch'],people:[1,4],desc:'层次分明，葱香四溢',steps:'和面→擀薄抹油撒葱→卷起再擀→煎至金黄',cal:320,protein:8,carbs:40,fat:14,cookTime:20,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:6,name:'小笼包',cat:'staple',ingredients:['面粉','猪肉','姜'],tags:['家常'],meals:['breakfast','lunch'],people:[1,4],desc:'皮薄汁多，鲜香可口',steps:'调馅→包制→蒸8分钟→配醋食用',cal:260,protein:12,carbs:30,fat:10,cookTime:35,img:'photo-1496116218417-1a781b1c416c',servings:2},
+  {id:7,name:'鸡蛋灌饼',cat:'staple',ingredients:['面粉','鸡蛋','生菜'],tags:['快手','家常'],meals:['breakfast'],people:[1,2],desc:'街头经典，蛋香饼脆',steps:'擀面皮→烙至鼓起→灌入蛋液→翻面煎熟',cal:280,protein:10,carbs:32,fat:12,cookTime:12,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:8,name:'白粥配咸菜',cat:'staple',ingredients:['大米','咸菜'],tags:['清淡','快手'],meals:['breakfast'],people:[1,2],desc:'最朴素的早餐选择',steps:'大米洗净→加水大火煮开→小火熬至浓稠→配咸菜',cal:150,protein:3,carbs:32,fat:1,cookTime:30,img:'photo-1516684732162-798a0062be99',servings:2},
+  {id:9,name:'热干面',cat:'staple',ingredients:['碱面','芝麻酱','葱花'],tags:['家常','快手'],meals:['breakfast','lunch'],people:[1,2],desc:'武汉名吃，芝麻香浓',steps:'面条煮熟→拌芝麻酱→加酸豆角葱花',cal:380,protein:12,carbs:50,fat:14,cookTime:10,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:15,name:'韭菜盒子',cat:'staple',ingredients:['韭菜','鸡蛋','面粉'],tags:['家常','快手'],meals:['breakfast'],people:[1,4],desc:'韭菜鲜香，外皮酥脆',steps:'和面→调馅→包制→煎至两面金黄',cal:290,protein:9,carbs:34,fat:12,cookTime:20,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:16,name:'蒸包子',cat:'staple',ingredients:['面粉','猪肉','白菜'],tags:['家常'],meals:['breakfast'],people:[1,6],desc:'松软可口，馅料丰富',steps:'发面→调馅→包制→蒸15分钟',cal:250,protein:10,carbs:32,fat:9,cookTime:40,img:'photo-1496116218417-1a781b1c416c',servings:4},
+  {id:17,name:'手抓饼',cat:'staple',ingredients:['面粉','油','鸡蛋'],tags:['油腻','快手'],meals:['breakfast'],people:[1,2],desc:'千层酥脆，蛋香诱人',steps:'擀面→抹油折叠→煎制→加蛋和生菜',cal:340,protein:9,carbs:38,fat:16,cookTime:10,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:39,name:'米饭',cat:'staple',ingredients:['大米'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,8],desc:'最基础的主食选择',steps:'淘米→加水→电饭煲煮',cal:200,protein:4,carbs:44,fat:1,cookTime:30,img:'photo-1516684732162-798a0062be99',servings:4},
+  {id:40,name:'蛋炒饭',cat:'staple',ingredients:['米饭','鸡蛋','葱花'],tags:['快手','家常'],meals:['lunch','dinner','supper'],people:[1,2],desc:'粒粒分明，蛋香诱人',steps:'热油炒蛋→加米饭翻炒→加葱花调味',cal:350,protein:11,carbs:45,fat:12,cookTime:10,img:'photo-1516684732162-798a0062be99',servings:2},
+  {id:41,name:'担担面',cat:'staple',ingredients:['面条','肉末','芝麻酱'],tags:['辣','快手'],meals:['lunch','dinner'],people:[1,2],desc:'麻辣鲜香，川味经典',steps:'煮面→炒肉末→调酱汁→拌面',cal:400,protein:14,carbs:48,fat:16,cookTime:15,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:42,name:'炸酱面',cat:'staple',ingredients:['面条','黄酱','肉丁'],tags:['家常'],meals:['lunch'],people:[1,4],desc:'老北京味道，酱香浓郁',steps:'炒酱→煮面→切菜码→拌面',cal:380,protein:13,carbs:50,fat:13,cookTime:20,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:50,name:'华夫饼',cat:'staple',ingredients:['面粉','鸡蛋','牛奶'],tags:['快手'],meals:['tea'],people:[1,2],desc:'外酥内软，配蜂蜜或水果',steps:'调面糊→华夫饼机烤制→加配料',cal:280,protein:7,carbs:36,fat:12,cookTime:15,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:51,name:'松饼',cat:'staple',ingredients:['面粉','鸡蛋','牛奶','蓝莓'],tags:['快手'],meals:['tea'],people:[1,2],desc:'蓬松柔软，枫糖点缀',steps:'调面糊→煎制→加枫糖浆',cal:260,protein:7,carbs:34,fat:10,cookTime:12,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:76,name:'饺子',cat:'staple',ingredients:['面粉','猪肉','韭菜'],tags:['家常'],meals:['dinner','supper'],people:[1,8],desc:'团圆象征，馅料随心',steps:'调馅→包制→煮或蒸',cal:280,protein:12,carbs:34,fat:10,cookTime:40,img:'photo-1496116218417-1a781b1c416c',servings:4},
+  {id:77,name:'炒面',cat:'staple',ingredients:['面条','蔬菜','肉'],tags:['快手','家常'],meals:['dinner','supper'],people:[1,2],desc:'快手主食，一锅搞定',steps:'面条煮八分熟→炒肉菜→加面条翻炒调味',cal:380,protein:13,carbs:48,fat:13,cookTime:15,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:107,name:'葱油拌面',cat:'staple',ingredients:['面条','小葱','酱油'],tags:['快手','家常'],meals:['lunch','supper'],people:[1,2],desc:'葱油香浓，面条爽滑',steps:'熬葱油→煮面→加葱油和酱油→拌匀',cal:360,protein:10,carbs:48,fat:14,cookTime:12,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:108,name:'牛肉面',cat:'staple',ingredients:['面条','牛肉','萝卜'],tags:['家常','慢炖'],meals:['lunch','dinner'],people:[1,2],desc:'牛肉酥烂，汤浓面筋',steps:'炖牛肉→煮面→浇牛肉汤→加萝卜',cal:420,protein:20,carbs:46,fat:16,cookTime:60,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:86,name:'酸辣粉',cat:'staple',ingredients:['红薯粉','醋','辣椒','花生'],tags:['辣','快手'],meals:['supper'],people:[1,2],desc:'酸辣过瘾，Q弹爽滑',steps:'粉条煮软→调酸辣汁→浇上→加花生',cal:320,protein:8,carbs:46,fat:12,cookTime:10,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:87,name:'螺蛳粉',cat:'staple',ingredients:['米粉','酸笋','腐竹','辣椒'],tags:['辣','油腻'],meals:['supper'],people:[1,2],desc:'闻着臭吃着香，越吃越上头',steps:'煮粉→加螺蛳汤→加酸笋腐竹花生',cal:450,protein:12,carbs:52,fat:20,cookTime:15,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:89,name:'泡面加蛋',cat:'staple',ingredients:['泡面','鸡蛋'],tags:['快手'],meals:['supper'],people:[1,2],desc:'深夜最快捷的慰藉',steps:'煮水→放面饼→加蛋→调味',cal:380,protein:10,carbs:48,fat:16,cookTime:5,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:114,name:'豆角焖面',cat:'staple',ingredients:['面条','豆角','肉'],tags:['家常'],meals:['lunch','dinner'],people:[1,4],desc:'面条入味，豆角软烂',steps:'炒肉豆角→加水→铺面条→焖至收汁',cal:370,protein:13,carbs:44,fat:14,cookTime:25,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:213,name:'杂粮饭',cat:'staple',ingredients:['糙米','紫米','燕麦'],tags:['清淡','养生'],meals:['lunch','dinner'],people:[1,6],desc:'粗细搭配，健康饱腹',steps:'杂粮浸泡→淘洗→加水→电饭煲煮',cal:210,protein:5,carbs:42,fat:2,cookTime:40,img:'photo-1516684732162-798a0062be99',servings:4},
+  {id:214,name:'煎饺',cat:'staple',ingredients:['面粉','猪肉','白菜'],tags:['家常','快手'],meals:['breakfast','supper'],people:[1,4],desc:'底部酥脆，馅料鲜香',steps:'包饺子→平底锅煎→加水盖盖焖→煎至金黄',cal:300,protein:12,carbs:34,fat:13,cookTime:15,img:'photo-1496116218417-1a781b1c416c',servings:2},
+  {id:216,name:'锅贴',cat:'staple',ingredients:['面粉','猪肉','韭菜'],tags:['家常','快手'],meals:['breakfast','supper'],people:[1,4],desc:'金黄酥脆，一口爆汁',steps:'包制→平底锅煎→加水焖→煎至金黄',cal:290,protein:11,carbs:32,fat:12,cookTime:18,img:'photo-1496116218417-1a781b1c416c',servings:2},
+  {id:217,name:'阳春面',cat:'staple',ingredients:['面条','酱油','猪油','葱'],tags:['快手','清淡'],meals:['breakfast','supper'],people:[1,2],desc:'简约之美，汤鲜面滑',steps:'煮面→调酱油猪油汤底→捞面→撒葱花',cal:300,protein:8,carbs:42,fat:12,cookTime:8,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:218,name:'烧饼',cat:'staple',ingredients:['面粉','芝麻','油'],tags:['快手'],meals:['breakfast'],people:[1,2],desc:'外酥内软，芝麻飘香',steps:'和面→擀圆→撒芝麻→烤制金黄',cal:280,protein:7,carbs:36,fat:12,cookTime:20,img:'photo-1509440159596-0249088772ff',servings:2},
+  {id:219,name:'馄饨',cat:'staple',ingredients:['面粉','猪肉','虾皮','紫菜'],tags:['家常','快手'],meals:['breakfast','supper'],people:[1,4],desc:'皮薄馅嫩，汤鲜味美',steps:'调馅→包制→煮→加紫菜虾皮汤底',cal:260,protein:11,carbs:30,fat:10,cookTime:20,img:'photo-1496116218417-1a781b1c416c',servings:2},
+  {id:220,name:'炒米粉',cat:'staple',ingredients:['米粉','蔬菜','鸡蛋'],tags:['快手','家常'],meals:['lunch','supper'],people:[1,2],desc:'爽滑入味，快手主食',steps:'米粉泡软→炒蛋蔬菜→加米粉翻炒调味',cal:350,protein:10,carbs:48,fat:12,cookTime:12,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:222,name:'花卷',cat:'staple',ingredients:['面粉','油','葱'],tags:['快手'],meals:['breakfast','lunch'],people:[1,4],desc:'层次分明，葱香扑鼻',steps:'和面→擀薄→抹油撒葱→卷切→蒸制',cal:240,protein:6,carbs:34,fat:9,cookTime:25,img:'photo-1509440159596-0249088772ff',servings:4},
+  {id:223,name:'刀削面',cat:'staple',ingredients:['面粉','肉','蔬菜'],tags:['家常'],meals:['lunch','dinner'],people:[1,4],desc:'面叶厚实，劲道弹牙',steps:'和面→削面入锅→浇卤汁',cal:360,protein:12,carbs:46,fat:13,cookTime:20,img:'photo-1569718212165-3a8278d5f624',servings:2},
+  {id:224,name:'炒年糕',cat:'staple',ingredients:['年糕','肉丝','白菜'],tags:['快手','家常'],meals:['lunch','supper'],people:[1,2],desc:'软糯Q弹，酱香入味',steps:'年糕切片→炒肉丝白菜→加年糕翻炒调味',cal:340,protein:9,carbs:50,fat:10,cookTime:12,img:'photo-1569718212165-3a8278d5f624',servings:2},
+
+  // ---- 荤菜 meat ----
+  {id:4,name:'煎蛋三明治',cat:'meat',ingredients:['鸡蛋','面包','生菜'],tags:['快手','清淡'],meals:['breakfast'],people:[1,2],desc:'简单营养的西式早餐',steps:'煎蛋→烤面包→夹生菜和酱料',cal:260,protein:13,carbs:26,fat:12,cookTime:8,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:10,name:'肉夹馍',cat:'meat',ingredients:['面粉','猪肉','青椒'],tags:['油腻','家常'],meals:['breakfast','lunch'],people:[1,2],desc:'陕西经典，肉香馍脆',steps:'卤肉→烤馍→夹肉和青椒',cal:380,protein:18,carbs:36,fat:16,cookTime:30,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:14,name:'培根煎蛋',cat:'meat',ingredients:['培根','鸡蛋'],tags:['油腻','快手'],meals:['breakfast'],people:[1,2],desc:'西式经典，简单满足',steps:'煎培根→煎蛋→摆盘',cal:320,protein:16,carbs:2,fat:28,cookTime:8,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:18,name:'香肠炒蛋',cat:'meat',ingredients:['香肠','鸡蛋'],tags:['快手','家常'],meals:['breakfast'],people:[1,2],desc:'快手早餐，蛋香肠嫩',steps:'香肠切片→炒蛋→翻炒',cal:290,protein:14,carbs:6,fat:23,cookTime:8,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:19,name:'宫保鸡丁',cat:'meat',ingredients:['鸡胸肉','花生','干辣椒'],tags:['辣','家常','快手'],meals:['lunch','dinner'],people:[1,6],desc:'经典川菜，花生与鸡丁的完美碰撞',steps:'鸡丁腌制→炒香料→炒鸡丁→加花生和调味',cal:280,protein:22,carbs:14,fat:16,cookTime:20,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:20,name:'红烧肉',cat:'meat',ingredients:['五花肉','酱油','冰糖'],tags:['油腻','家常','慢炖'],meals:['lunch','dinner'],people:[2,8],desc:'肥而不腻，入口即化',steps:'焯水→炒糖色→加肉翻炒→加水炖1小时',cal:450,protein:20,carbs:12,fat:36,cookTime:70,img:'photo-1544025162-d76694265947',servings:4},
+  {id:21,name:'糖醋排骨',cat:'meat',ingredients:['排骨','醋','糖'],tags:['油腻','家常'],meals:['lunch','dinner'],people:[2,6],desc:'酸甜可口，色泽红亮',steps:'排骨焯水→炸制→调糖醋汁→翻炒收汁',cal:400,protein:22,carbs:18,fat:26,cookTime:35,img:'photo-1544025162-d76694265947',servings:4},
+  {id:22,name:'鱼香肉丝',cat:'meat',ingredients:['猪肉','木耳','笋'],tags:['辣','家常','快手'],meals:['lunch','dinner'],people:[1,6],desc:'无鱼却有鱼香的川菜经典',steps:'肉丝腌制→炒配菜→加肉丝→调鱼香汁翻炒',cal:250,protein:18,carbs:12,fat:14,cookTime:15,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:26,name:'可乐鸡翅',cat:'meat',ingredients:['鸡翅','可乐','酱油'],tags:['家常','快手'],meals:['lunch','dinner'],people:[2,4],desc:'甜香诱人，连骨头都入味',steps:'鸡翅划刀→煎至两面金黄→加可乐酱油→收汁',cal:300,protein:20,carbs:20,fat:16,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:58,name:'清蒸鲈鱼',cat:'meat',ingredients:['鲈鱼','姜','葱','蒸鱼豉油'],tags:['清淡','快手'],meals:['dinner'],people:[2,6],desc:'鱼肉鲜嫩，清蒸最见功夫',steps:'鱼处理→铺姜葱→蒸8分钟→浇豉油热油',cal:180,protein:26,carbs:2,fat:7,cookTime:15,img:'photo-1519708227418-c8fd9a32b7a2',servings:2},
+  {id:60,name:'蒜蓉粉丝虾',cat:'meat',ingredients:['大虾','粉丝','蒜'],tags:['家常','快手'],meals:['dinner'],people:[2,6],desc:'蒜香浓郁，粉丝入味',steps:'虾开背→铺粉丝→浇蒜蓉→蒸8分钟',cal:200,protein:20,carbs:14,fat:6,cookTime:15,img:'photo-1565680018434-b513d5e5fd47',servings:2},
+  {id:61,name:'红烧牛腩',cat:'meat',ingredients:['牛腩','土豆','胡萝卜'],tags:['油腻','慢炖','家常'],meals:['dinner','lunch'],people:[2,8],desc:'软烂入味，浓香醇厚',steps:'牛腩焯水→炒糖色→炖1.5小时→加土豆胡萝卜',cal:380,protein:24,carbs:18,fat:22,cookTime:100,img:'photo-1544025162-d76694265947',servings:4},
+  {id:80,name:'烤串',cat:'meat',ingredients:['羊肉','辣椒粉','孜然'],tags:['辣','油腻'],meals:['supper'],people:[1,6],desc:'深夜的灵魂慰藉',steps:'肉切块穿串→刷油→烤制→撒孜然辣椒',cal:350,protein:22,carbs:6,fat:26,cookTime:20,img:'photo-1544025162-d76694265947',servings:2},
+  {id:81,name:'炸鸡',cat:'meat',ingredients:['鸡腿','面粉','面包糠'],tags:['油腻'],meals:['supper'],people:[1,4],desc:'外酥里嫩，深夜罪恶美味',steps:'鸡腿腌制→裹粉→油炸至金黄',cal:420,protein:22,carbs:28,fat:24,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:83,name:'麻辣小龙虾',cat:'meat',ingredients:['小龙虾','干辣椒','花椒'],tags:['辣','油腻'],meals:['supper'],people:[2,6],desc:'麻辣鲜香，夜宵之王',steps:'龙虾洗净→炒香料→煮龙虾→收汁',cal:280,protein:18,carbs:10,fat:18,cookTime:25,img:'photo-1565680018434-b513d5e5fd47',servings:2},
+  {id:56,name:'鸡翅',cat:'meat',ingredients:['鸡翅','酱油','蜂蜜'],tags:['油腻','快手'],meals:['tea','supper'],people:[1,4],desc:'蜜汁鸡翅，甜香诱人',steps:'鸡翅腌制→烤制或煎制→刷蜜汁',cal:280,protein:18,carbs:14,fat:16,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:225,name:'回锅肉',cat:'meat',ingredients:['五花肉','青椒','豆瓣酱'],tags:['辣','家常','快手'],meals:['lunch','dinner'],people:[1,6],desc:'川菜之首，肥而不腻',steps:'五花肉煮熟切片→炒出油→加豆瓣酱青椒→翻炒',cal:380,protein:18,carbs:10,fat:28,cookTime:20,img:'photo-1544025162-d76694265947',servings:2},
+  {id:226,name:'水煮肉片',cat:'meat',ingredients:['猪肉','豆芽','干辣椒','花椒'],tags:['辣','油腻'],meals:['lunch','dinner'],people:[2,6],desc:'麻辣鲜烫，川菜经典',steps:'肉片腌制→铺蔬菜→浇热油辣子→撒花椒',cal:350,protein:22,carbs:10,fat:24,cookTime:25,img:'photo-1544025162-d76694265947',servings:2},
+  {id:227,name:'东坡肉',cat:'meat',ingredients:['五花肉','酱油','黄酒','冰糖'],tags:['油腻','慢炖','家常'],meals:['dinner'],people:[2,8],desc:'酥烂如豆腐，名菜经典',steps:'肉焯水→加黄酒酱油冰糖→小火焖2小时',cal:480,protein:18,carbs:10,fat:40,cookTime:130,img:'photo-1544025162-d76694265947',servings:4},
+  {id:228,name:'辣子鸡',cat:'meat',ingredients:['鸡肉','干辣椒','花椒'],tags:['辣','家常'],meals:['lunch','dinner'],people:[1,4],desc:'干辣椒里找鸡，越吃越香',steps:'鸡块腌制→油炸→加辣椒花椒翻炒',cal:320,protein:22,carbs:8,fat:22,cookTime:20,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:229,name:'黄焖鸡',cat:'meat',ingredients:['鸡腿','香菇','青椒'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'酱香浓郁，米饭杀手',steps:'鸡块焯水→加酱料焖煮→加香菇青椒',cal:310,protein:20,carbs:14,fat:18,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:230,name:'蒜薹炒肉',cat:'meat',ingredients:['蒜薹','猪肉'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'蒜薹脆嫩，肉香四溢',steps:'肉切片腌制→炒肉→加蒜薹翻炒→调味',cal:240,protein:16,carbs:12,fat:14,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:231,name:'青椒肉丝',cat:'meat',ingredients:['猪肉','青椒'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'简单快手，下饭神器',steps:'肉丝腌制→炒散→加青椒丝→翻炒调味',cal:220,protein:16,carbs:8,fat:13,cookTime:10,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:232,name:'京酱肉丝',cat:'meat',ingredients:['猪肉','甜面酱','葱','豆皮'],tags:['家常'],meals:['lunch','dinner'],people:[2,6],desc:'酱香浓郁，卷豆皮吃',steps:'肉丝滑炒→加甜面酱→配豆皮葱丝',cal:280,protein:18,carbs:16,fat:14,cookTime:15,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:233,name:'红烧排骨',cat:'meat',ingredients:['排骨','酱油','冰糖','姜'],tags:['家常','慢炖'],meals:['lunch','dinner'],people:[2,6],desc:'色泽红亮，骨肉分离',steps:'排骨焯水→炒糖色→加排骨翻炒→炖40分钟',cal:380,protein:20,carbs:10,fat:26,cookTime:50,img:'photo-1544025162-d76694265947',servings:2},
+  {id:234,name:'梅菜扣肉',cat:'meat',ingredients:['五花肉','梅菜','酱油'],tags:['油腻','慢炖','家常'],meals:['dinner'],people:[2,6],desc:'肥而不腻，梅菜下饭',steps:'肉煮炸切片→铺梅菜→蒸1.5小时',cal:420,protein:16,carbs:14,fat:32,cookTime:100,img:'photo-1544025162-d76694265947',servings:3},
+  {id:235,name:'口水鸡',cat:'meat',ingredients:['鸡','花椒','辣椒','花生'],tags:['辣','快手'],meals:['lunch','dinner'],people:[2,6],desc:'麻辣鲜香，口水直流',steps:'鸡煮熟→切件→浇辣油花椒汁→撒花生',cal:260,protein:22,carbs:8,fat:16,cookTime:20,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:236,name:'葱爆羊肉',cat:'meat',ingredients:['羊肉','大葱','酱油'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'葱香肉嫩，北方名菜',steps:'羊肉切片→大火爆炒→加大葱→调味',cal:300,protein:20,carbs:8,fat:20,cookTime:10,img:'photo-1544025162-d76694265947',servings:2},
+  {id:237,name:'咕咾肉',cat:'meat',ingredients:['猪肉','菠萝','甜椒'],tags:['油腻','家常'],meals:['lunch','dinner'],people:[2,6],desc:'酸甜可口，粤菜经典',steps:'肉切块裹粉→油炸→加菠萝甜椒→酸甜汁',cal:360,protein:16,carbs:24,fat:20,cookTime:20,img:'photo-1544025162-d76694265947',servings:2},
+  {id:238,name:'香菇滑鸡',cat:'meat',ingredients:['鸡肉','香菇','姜'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'嫩滑鲜香，营养搭配',steps:'鸡肉腌制→加香菇→蒸15分钟',cal:240,protein:20,carbs:8,fat:14,cookTime:20,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:239,name:'水煮鱼',cat:'meat',ingredients:['草鱼','豆芽','干辣椒'],tags:['辣','油腻'],meals:['lunch','dinner'],people:[2,6],desc:'鱼片嫩滑，麻辣鲜香',steps:'鱼片腌制→铺豆芽→煮熟鱼片→浇热油',cal:320,protein:24,carbs:8,fat:22,cookTime:25,img:'photo-1519708227418-c8fd9a32b7a2',servings:2},
+  {id:240,name:'黑椒牛柳',cat:'meat',ingredients:['牛肉','洋葱','黑胡椒'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'黑椒浓香，牛肉嫩滑',steps:'牛肉切片腌制→大火爆炒→加洋葱→黑椒调味',cal:280,protein:22,carbs:10,fat:16,cookTime:12,img:'photo-1544025162-d76694265947',servings:2},
+  {id:241,name:'剁椒鱼头',cat:'meat',ingredients:['鱼头','剁椒','姜'],tags:['辣','家常'],meals:['dinner'],people:[2,6],desc:'鲜辣开胃，湖南名菜',steps:'鱼头处理→铺剁椒→蒸10分钟→浇热油',cal:220,protein:20,carbs:6,fat:12,cookTime:15,img:'photo-1519708227418-c8fd9a32b7a2',servings:2},
+  {id:242,name:'糖醋里脊',cat:'meat',ingredients:['猪肉','醋','糖','淀粉'],tags:['油腻','家常'],meals:['lunch','dinner'],people:[2,6],desc:'外酥里嫩，酸甜可口',steps:'肉条裹粉→油炸→浇糖醋汁',cal:380,protein:16,carbs:22,fat:22,cookTime:20,img:'photo-1544025162-d76694265947',servings:2},
+  {id:243,name:'香菇蒸鸡',cat:'meat',ingredients:['鸡肉','香菇','红枣','姜'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鲜嫩入味，营养满点',steps:'鸡块腌制→加香菇红枣→蒸20分钟',cal:220,protein:20,carbs:8,fat:12,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:244,name:'孜然羊肉',cat:'meat',ingredients:['羊肉','孜然','辣椒'],tags:['辣','家常','快手'],meals:['lunch','dinner','supper'],people:[1,4],desc:'孜然飘香，肉嫩味浓',steps:'羊肉切片→爆炒→加孜然辣椒→翻炒',cal:310,protein:20,carbs:6,fat:22,cookTime:10,img:'photo-1544025162-d76694265947',servings:2},
+  {id:245,name:'番茄牛腩',cat:'meat',ingredients:['牛腩','番茄','土豆'],tags:['家常','慢炖'],meals:['lunch','dinner'],people:[2,6],desc:'酸甜浓郁，牛腩酥烂',steps:'牛腩焯水→加番茄炖1.5小时→加土豆',cal:340,protein:22,carbs:16,fat:18,cookTime:100,img:'photo-1544025162-d76694265947',servings:3},
+  {id:246,name:'啤酒鸭',cat:'meat',ingredients:['鸭肉','啤酒','姜','八角'],tags:['家常','慢炖'],meals:['dinner'],people:[2,6],desc:'啤酒入味，鸭肉酥烂',steps:'鸭肉焯水→加啤酒炖1小时→收汁',cal:320,protein:18,carbs:12,fat:20,cookTime:70,img:'photo-1544025162-d76694265947',servings:3},
+  {id:247,name:'锅包肉',cat:'meat',ingredients:['猪肉','醋','糖','淀粉'],tags:['油腻','家常'],meals:['lunch','dinner'],people:[2,6],desc:'东北名菜，外酥酸甜',steps:'肉切片裹糊→油炸→浇酸甜汁',cal:400,protein:16,carbs:24,fat:24,cookTime:20,img:'photo-1544025162-d76694265947',servings:2},
+  {id:248,name:'咖喱鸡',cat:'meat',ingredients:['鸡肉','土豆','胡萝卜','咖喱'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,6],desc:'浓郁咖喱，配饭一绝',steps:'炒鸡肉→加土豆胡萝卜→加咖喱块→焖煮',cal:320,protein:18,carbs:22,fat:16,cookTime:25,img:'photo-1598103442097-8b74f8f1dc49',servings:2},
+  {id:249,name:'木须肉',cat:'meat',ingredients:['猪肉','鸡蛋','木耳','黄瓜'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'荤素搭配，家常经典',steps:'炒蛋→炒肉→加木耳黄瓜→调味',cal:230,protein:14,carbs:10,fat:14,cookTime:10,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:250,name:'肉末蒸蛋',cat:'meat',ingredients:['猪肉','鸡蛋'],tags:['清淡','快手','家常'],meals:['lunch','dinner'],people:[1,4],desc:'嫩滑鲜香，老少皆宜',steps:'蛋打散加水蒸→炒肉末→铺在蛋上',cal:190,protein:14,carbs:4,fat:12,cookTime:15,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:251,name:'酱牛肉',cat:'meat',ingredients:['牛肉','酱油','八角','桂皮'],tags:['慢炖','家常'],meals:['lunch','dinner','supper'],people:[2,6],desc:'酱香浓郁，切片即食',steps:'牛肉焯水→加酱油香料→小火炖2小时→浸泡',cal:240,protein:26,carbs:4,fat:12,cookTime:130,img:'photo-1544025162-d76694265947',servings:3},
+  {id:252,name:'白切鸡',cat:'meat',ingredients:['鸡','姜','葱'],tags:['清淡','家常'],meals:['lunch','dinner'],people:[2,6],desc:'皮爽肉滑，原汁原味',steps:'鸡整只煮→冰水浸泡→切件→蘸料',cal:200,protein:22,carbs:2,fat:10,cookTime:30,img:'photo-1598103442097-8b74f8f1dc49',servings:3},
+
+  // ---- 素菜 veg ----
+  {id:29,name:'麻婆豆腐',cat:'veg',ingredients:['豆腐','肉末','豆瓣酱'],tags:['辣','家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'麻辣鲜香，下饭神器',steps:'炒肉末→加豆瓣酱→放豆腐→勾芡撒花椒',cal:180,protein:12,carbs:8,fat:12,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:30,name:'地三鲜',cat:'veg',ingredients:['土豆','茄子','青椒'],tags:['家常','油腻'],meals:['lunch','dinner'],people:[1,6],desc:'东北经典，三种蔬菜的完美组合',steps:'蔬菜切块→分别过油→一起翻炒调味',cal:200,protein:5,carbs:22,fat:10,cookTime:18,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:31,name:'清炒时蔬',cat:'veg',ingredients:['时令蔬菜','蒜'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,6],desc:'简单健康，蔬菜本味',steps:'热油爆香蒜→下蔬菜大火翻炒→调味出锅',cal:80,protein:3,carbs:8,fat:4,cookTime:6,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:32,name:'蒜蓉西兰花',cat:'veg',ingredients:['西兰花','蒜'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'翠绿鲜嫩，蒜香扑鼻',steps:'西兰花焯水→爆香蒜蓉→翻炒调味',cal:70,protein:4,carbs:8,fat:2,cookTime:8,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:33,name:'酸辣土豆丝',cat:'veg',ingredients:['土豆','醋','干辣椒'],tags:['辣','快手','家常'],meals:['lunch','dinner'],people:[1,4],desc:'酸辣爽脆，开胃下饭',steps:'土豆切丝泡水→爆香辣椒→大火翻炒→加醋调味',cal:120,protein:3,carbs:20,fat:4,cookTime:8,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:43,name:'凉拌黄瓜',cat:'veg',ingredients:['黄瓜','蒜','醋'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'爽脆开胃，夏天必备',steps:'拍黄瓜→加蒜末→调味拌匀',cal:50,protein:1,carbs:6,fat:2,cookTime:5,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:44,name:'蚝油生菜',cat:'veg',ingredients:['生菜','蚝油','蒜'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鲜嫩爽口，蚝油提鲜',steps:'生菜焯水→蚝油汁→浇上即可',cal:60,protein:2,carbs:5,fat:3,cookTime:5,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:68,name:'香菇油菜',cat:'veg',ingredients:['香菇','油菜','蒜'],tags:['清淡','快手'],meals:['dinner','lunch'],people:[1,4],desc:'鲜嫩爽滑，营养搭配',steps:'香菇切片→炒油菜→加香菇→调味',cal:70,protein:3,carbs:6,fat:3,cookTime:8,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:84,name:'烤韭菜',cat:'veg',ingredients:['韭菜','辣椒粉','孜然'],tags:['辣','快手'],meals:['supper'],people:[1,4],desc:'烧烤摊必备，焦香诱人',steps:'韭菜洗净→刷油→烤制→撒调味',cal:80,protein:3,carbs:6,fat:5,cookTime:8,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:85,name:'凉拌毛豆',cat:'veg',ingredients:['毛豆','蒜','辣椒'],tags:['辣','快手'],meals:['supper'],people:[1,4],desc:'冰凉爽口，下酒良品',steps:'毛豆煮熟→加蒜末辣椒→拌匀冷藏',cal:90,protein:6,carbs:8,fat:3,cookTime:10,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:95,name:'西红柿炒鸡蛋',cat:'veg',ingredients:['番茄','鸡蛋'],tags:['家常','快手','清淡'],meals:['lunch','dinner'],people:[1,4],desc:'国民家常菜，酸甜可口',steps:'炒蛋→加番茄→翻炒调味',cal:140,protein:8,carbs:10,fat:8,cookTime:8,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:300,name:'干煸四季豆',cat:'veg',ingredients:['四季豆','肉末','干辣椒'],tags:['辣','家常'],meals:['lunch','dinner'],people:[1,4],desc:'焦香入味，越嚼越香',steps:'四季豆过油→炒肉末辣椒→加四季豆翻炒',cal:180,protein:6,carbs:14,fat:12,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:301,name:'手撕包菜',cat:'veg',ingredients:['包菜','干辣椒','蒜'],tags:['辣','快手','家常'],meals:['lunch','dinner'],people:[1,4],desc:'清脆爽口，简单美味',steps:'包菜手撕→爆香辣椒蒜→大火翻炒→调味',cal:90,protein:2,carbs:10,fat:5,cookTime:8,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:302,name:'红烧茄子',cat:'veg',ingredients:['茄子','酱油','蒜'],tags:['家常','油腻'],meals:['lunch','dinner'],people:[1,4],desc:'软糯入味，酱香浓郁',steps:'茄子切块过油→加酱油蒜→焖煮收汁',cal:160,protein:3,carbs:16,fat:9,cookTime:15,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:303,name:'鱼香茄子',cat:'veg',ingredients:['茄子','豆瓣酱','醋'],tags:['辣','家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鱼香浓郁，软糯下饭',steps:'茄子过油→炒豆瓣酱→调鱼香汁→焖煮',cal:170,protein:4,carbs:16,fat:10,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:304,name:'蒜蓉茄子',cat:'veg',ingredients:['茄子','蒜','酱油'],tags:['清淡','家常'],meals:['lunch','dinner'],people:[1,4],desc:'蒜香浓郁，软糯可口',steps:'茄子切条蒸→浇蒜蓉酱油→淋热油',cal:110,protein:3,carbs:14,fat:5,cookTime:15,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:305,name:'家常豆腐',cat:'veg',ingredients:['豆腐','青椒','木耳','豆瓣酱'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'豆腐入味，鲜香可口',steps:'豆腐煎至金黄→加豆瓣酱青椒木耳→翻炒',cal:180,protein:10,carbs:10,fat:11,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:306,name:'韭菜炒鸡蛋',cat:'veg',ingredients:['韭菜','鸡蛋'],tags:['家常','快手'],meals:['lunch','dinner'],people:[1,4],desc:'鲜嫩可口，快手家常',steps:'炒蛋→加韭菜→大火翻炒→调味',cal:150,protein:8,carbs:6,fat:10,cookTime:6,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:307,name:'虎皮青椒',cat:'veg',ingredients:['青椒','醋','酱油'],tags:['辣','快手'],meals:['lunch','dinner'],people:[1,4],desc:'皮焦肉嫩，微辣开胃',steps:'青椒煎至虎皮→加醋酱油→焖煮',cal:80,protein:2,carbs:8,fat:4,cookTime:8,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:308,name:'糖醋藕片',cat:'veg',ingredients:['莲藕','醋','糖'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'脆爽酸甜，开胃解腻',steps:'藕切片→快炒→加醋糖调味',cal:100,protein:2,carbs:18,fat:3,cookTime:8,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:309,name:'芹菜炒豆干',cat:'veg',ingredients:['芹菜','豆干','蒜'],tags:['清淡','快手','家常'],meals:['lunch','dinner'],people:[1,4],desc:'清爽脆嫩，营养搭配',steps:'豆干切片→炒芹菜→加豆干→调味',cal:100,protein:6,carbs:8,fat:5,cookTime:8,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:310,name:'干锅花菜',cat:'veg',ingredients:['花菜','五花肉','干辣椒'],tags:['辣','家常'],meals:['lunch','dinner'],people:[1,4],desc:'干香入味，越吃越香',steps:'花菜焯水→炒五花肉辣椒→加花菜翻炒',cal:160,protein:6,carbs:12,fat:10,cookTime:12,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:311,name:'白菜炖豆腐',cat:'veg',ingredients:['白菜','豆腐','姜'],tags:['清淡','家常'],meals:['lunch','dinner'],people:[1,4],desc:'清淡暖胃，营养简单',steps:'白菜炒软→加豆腐→加水炖煮→调味',cal:90,protein:6,carbs:8,fat:4,cookTime:12,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:312,name:'蒜蓉金针菇',cat:'veg',ingredients:['金针菇','蒜','酱油'],tags:['清淡','快手'],meals:['lunch','dinner','supper'],people:[1,4],desc:'蒜香浓郁，嫩滑爽口',steps:'金针菇铺盘→浇蒜蓉酱油→蒸8分钟',cal:70,protein:3,carbs:10,fat:2,cookTime:10,img:'photo-1512621776951-a57141f2eefd',servings:2},
+  {id:313,name:'香菇蒸蛋',cat:'veg',ingredients:['香菇','鸡蛋','葱'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,2],desc:'嫩滑鲜香，营养美味',steps:'蛋打散加水→加香菇→蒸8分钟',cal:110,protein:8,carbs:4,fat:6,cookTime:10,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:315,name:'凉拌木耳',cat:'veg',ingredients:['木耳','蒜','醋','辣椒'],tags:['清淡','快手'],meals:['lunch','dinner','supper'],people:[1,4],desc:'爽脆开胃，凉拌经典',steps:'木耳泡发焯水→加蒜醋辣椒→拌匀',cal:60,protein:2,carbs:10,fat:2,cookTime:8,img:'photo-1512621776951-a57141f2eafd',servings:2},
+  {id:316,name:'丝瓜炒蛋',cat:'veg',ingredients:['丝瓜','鸡蛋'],tags:['清淡','快手','家常'],meals:['lunch','dinner'],people:[1,4],desc:'清甜爽口，夏日家常',steps:'炒蛋→加丝瓜翻炒→调味',cal:120,protein:6,carbs:8,fat:7,cookTime:8,img:'photo-1540420773420-3366772f4999',servings:2},
+  {id:317,name:'素炒豆芽',cat:'veg',ingredients:['豆芽','蒜','醋'],tags:['清淡','快手'],meals:['lunch','dinner'],people:[1,4],desc:'爽脆鲜嫩，简单美味',steps:'爆香蒜→下豆芽快炒→加醋调味',cal:55,protein:3,carbs:6,fat:2,cookTime:5,img:'photo-1512621776951-a57141f2eefd',servings:2},
+
+  // ---- 甜品 dessert ----
+  {id:47,name:'红豆双皮奶',cat:'dessert',ingredients:['牛奶','蛋清','红豆'],tags:['清淡'],meals:['tea'],people:[1,4],desc:'嫩滑细腻，红豆绵密',steps:'煮牛奶→加蛋清→蒸制→加红豆',cal:180,protein:6,carbs:26,fat:5,cookTime:25,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:52,name:'蛋挞',cat:'dessert',ingredients:['蛋挞皮','鸡蛋','牛奶'],tags:['快手'],meals:['tea','lunch','dinner'],people:[1,4],desc:'酥脆外皮，嫩滑蛋液',steps:'调蛋液→倒入挞皮→烤15分钟',cal:240,protein:5,carbs:26,fat:13,cookTime:20,img:'photo-1519915028121-7d3463d20b13',servings:2},
+  {id:54,name:'桂花糕',cat:'dessert',ingredients:['糯米粉','桂花','糖'],tags:['清淡'],meals:['tea','lunch','dinner'],people:[1,4],desc:'花香四溢，软糯香甜',steps:'调糊→蒸制→撒桂花',cal:190,protein:3,carbs:38,fat:3,cookTime:25,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:55,name:'绿豆糕',cat:'dessert',ingredients:['绿豆','糖'],tags:['清淡'],meals:['tea'],people:[1,4],desc:'细腻绵密，清凉解暑',steps:'绿豆蒸熟→碾碎→加糖→模具成型',cal:180,protein:4,carbs:34,fat:3,cookTime:30,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:116,name:'提拉米苏',cat:'dessert',ingredients:['马斯卡彭','咖啡','可可粉'],tags:['快手'],meals:['tea','dinner'],people:[1,4],desc:'经典意式甜品，丝滑浓郁',steps:'打发芝士→蘸咖啡手指饼干→层叠→撒可可粉',cal:300,protein:6,carbs:30,fat:18,cookTime:20,img:'photo-1578985545062-69928b1d9587',servings:2},
+  {id:117,name:'焦糖布丁',cat:'dessert',ingredients:['鸡蛋','牛奶','糖'],tags:['快手'],meals:['tea','dinner'],people:[1,4],desc:'嫩滑甜蜜，焦糖飘香',steps:'熬焦糖→调蛋奶液→倒入模具→蒸或烤',cal:220,protein:6,carbs:30,fat:9,cookTime:25,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:118,name:'双皮奶',cat:'dessert',ingredients:['牛奶','蛋清','糖'],tags:['快手'],meals:['tea'],people:[1,4],desc:'嫩滑如丝，奶香浓郁',steps:'煮牛奶→取奶皮→加蛋清→蒸制',cal:180,protein:6,carbs:22,fat:6,cookTime:20,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:119,name:'芒果慕斯',cat:'dessert',ingredients:['芒果','奶油','吉利丁'],tags:['快手'],meals:['tea'],people:[1,4],desc:'芒果飘香，入口即化',steps:'打芒果泥→拌奶油→加吉利丁→冷藏',cal:240,protein:4,carbs:28,fat:12,cookTime:20,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:120,name:'红豆沙',cat:'dessert',ingredients:['红豆','冰糖'],tags:['清淡','养生'],meals:['tea','supper'],people:[1,4],desc:'甜蜜绵密，暖胃暖心',steps:'红豆泡发→加水煮烂→加冰糖',cal:160,protein:5,carbs:32,fat:1,cookTime:40,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:121,name:'杨枝甘露',cat:'dessert',ingredients:['芒果','西柚','椰浆'],tags:['快手'],meals:['tea'],people:[1,4],desc:'港式经典，清凉甜蜜',steps:'芒果打泥→加椰浆→加西柚粒',cal:180,protein:3,carbs:28,fat:6,cookTime:10,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:400,name:'姜撞奶',cat:'dessert',ingredients:['牛奶','姜','糖'],tags:['清淡','快手'],meals:['tea','supper'],people:[1,2],desc:'姜香奶滑，暖胃驱寒',steps:'姜汁→热牛奶冲入→静置凝固',cal:140,protein:5,carbs:18,fat:5,cookTime:8,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:401,name:'芝麻糊',cat:'dessert',ingredients:['黑芝麻','糯米粉','糖'],tags:['清淡','养生'],meals:['tea','supper','breakfast'],people:[1,4],desc:'浓香顺滑，乌发养颜',steps:'芝麻炒香磨粉→加糯米粉煮→加糖',cal:170,protein:4,carbs:24,fat:6,cookTime:15,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:402,name:'烧仙草',cat:'dessert',ingredients:['仙草粉','牛奶','红豆'],tags:['清淡','快手'],meals:['tea','supper'],people:[1,4],desc:'清凉消暑，Q弹爽滑',steps:'仙草粉煮制→冷藏→加牛奶红豆',cal:120,protein:3,carbs:20,fat:3,cookTime:15,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:403,name:'糯米糍',cat:'dessert',ingredients:['糯米粉','芒果','椰蓉'],tags:['快手'],meals:['tea'],people:[1,4],desc:'软糯香甜，果味十足',steps:'糯米粉蒸熟→包芒果丁→裹椰蓉',cal:200,protein:3,carbs:34,fat:6,cookTime:15,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:404,name:'龟苓膏',cat:'dessert',ingredients:['龟苓膏粉','蜂蜜','牛奶'],tags:['清淡','养生'],meals:['tea','supper'],people:[1,4],desc:'清凉降火，微苦回甘',steps:'龟苓膏粉煮制→冷藏→加蜂蜜牛奶',cal:80,protein:1,carbs:14,fat:2,cookTime:10,img:'photo-1488477181946-6428a0291777',servings:2},
+  {id:405,name:'汤圆',cat:'dessert',ingredients:['糯米粉','芝麻馅','花生馅'],tags:['清淡'],meals:['supper','breakfast'],people:[1,4],desc:'团团圆圆，甜蜜软糯',steps:'包馅→煮→加甜汤',cal:200,protein:4,carbs:32,fat:6,cookTime:15,img:'photo-1488477181946-6428a0291777',servings:2},
+
+  // ---- 水果 fruit ----
+  {id:53,name:'水果拼盘',cat:'fruit',ingredients:['西瓜','草莓','芒果','蓝莓'],tags:['清淡','快手'],meals:['tea'],people:[1,6],desc:'缤纷水果，清爽解暑',steps:'切水果→摆盘→可加酸奶',cal:90,protein:1,carbs:20,fat:1,cookTime:8,img:'photo-1619566636858-adf3ef46400b',servings:2},
+  {id:122,name:'水果沙拉',cat:'fruit',ingredients:['苹果','香蕉','酸奶','坚果'],tags:['清淡','快手'],meals:['tea'],people:[1,4],desc:'营养均衡，酸甜可口',steps:'切水果→拌酸奶→撒坚果',cal:150,protein:4,carbs:26,fat:4,cookTime:5,img:'photo-1490474418585-ba9bad8fd0ea',servings:2},
+  {id:123,name:'酸奶水果杯',cat:'fruit',ingredients:['酸奶','草莓','蓝莓','麦片'],tags:['清淡','快手'],meals:['tea'],people:[1,2],desc:'层层叠叠，颜值满满',steps:'杯中分层放酸奶→水果→麦片',cal:140,protein:5,carbs:22,fat:3,cookTime:5,img:'photo-1619566636858-adf3ef46400b',servings:2},
+  {id:124,name:'鲜榨果汁',cat:'fruit',ingredients:['橙子','苹果','胡萝卜'],tags:['清淡','快手'],meals:['tea'],people:[1,2],desc:'维C满满，活力一夏',steps:'水果切块→榨汁→加冰',cal:100,protein:1,carbs:24,fat:0,cookTime:5,img:'photo-1619566636858-adf3ef46400b',servings:2},
+  {id:500,name:'牛油果吐司',cat:'fruit',ingredients:['牛油果','面包','鸡蛋'],tags:['快手','清淡'],meals:['breakfast','tea'],people:[1,2],desc:'网红健康，饱腹感强',steps:'牛油果压泥→涂面包→加煎蛋',cal:240,protein:8,carbs:22,fat:14,cookTime:8,img:'photo-1528735602780-2552fd41c7af',servings:2},
+  {id:501,name:'水果冰沙',cat:'fruit',ingredients:['芒果','草莓','冰块','蜂蜜'],tags:['清淡','快手'],meals:['tea'],people:[1,2],desc:'冰爽甜蜜，消暑神器',steps:'水果切块→加冰块→搅拌→加蜂蜜',cal:120,protein:1,carbs:28,fat:1,cookTime:5,img:'photo-1619566636858-adf3ef46400b',servings:2},
+  {id:502,name:'水果奶昔',cat:'fruit',ingredients:['香蕉','牛奶','蓝莓'],tags:['清淡','快手'],meals:['tea','breakfast'],people:[1,2],desc:'丝滑浓郁，营养美味',steps:'水果加牛奶→搅拌→加冰',cal:180,protein:5,carbs:28,fat:5,cookTime:5,img:'photo-1619566636858-adf3ef46400b',servings:2}
+];
+
+const INGREDIENT_CATEGORIES = [
+  {name:'肉类',items:['猪肉','牛肉','羊肉','鸡肉','鸭肉','排骨','五花肉','鸡翅','培根','香肠','猪肝']},
+  {name:'水产',items:['鱼','虾','小龙虾','鲫鱼','鲈鱼','大虾','花蛤','草鱼','鱼头','虾仁']},
+  {name:'蛋奶',items:['鸡蛋','皮蛋','牛奶','酸奶','芝士','奶油','蛋清']},
+  {name:'蔬菜',items:['白菜','土豆','茄子','番茄','黄瓜','青椒','西兰花','生菜','冬瓜','豆芽','四季豆','油菜','韭菜','南瓜','木耳','豆角','香菇','毛豆','丝瓜','芹菜','花菜','金针菇','包菜','蒜薹','莲藕','胡萝卜','洋葱','豆干','茶树菇']},
+  {name:'豆制品',items:['豆腐','豆皮','腐竹']},
+  {name:'主食',items:['大米','面粉','面条','米粉','西米','年糕']},
+  {name:'调味料',items:['辣椒','花椒','孜然','芝麻酱','甜面酱','豆瓣酱','蚝油','酱油','醋','蜂蜜','冰糖','姜','蒜','葱','咖喱','黑胡椒','八角','桂皮','剁椒']}
+];
+
+const PRESET_RESTRICTIONS = ['不吃辣','不吃香菜','不吃葱蒜','不吃海鲜','不吃牛羊肉','不吃猪肉','不吃豆制品','不吃乳制品','不吃鸡蛋'];
+const NUTRITION_PRESETS = [
+  {id:'standard',name:'🏃 标准模式',protein:75,carbs:250,fat:60},
+  {id:'highprotein',name:'🥩 高蛋白模式',protein:120,carbs:150,fat:50},
+  {id:'lowcarb',name:'🥗 低碳水模式',protein:80,carbs:80,fat:70},
+  {id:'lowfat',name:'🧘 低脂模式',protein:70,carbs:220,fat:30},
+  {id:'muscle',name:'💪 增肌模式',protein:130,carbs:280,fat:65}
+];
+
+const MEAL_NAMES = {breakfast:'早餐',lunch:'午餐',tea:'下午茶',dinner:'晚餐',supper:'夜宵'};
+const MEAL_ORDER = ['breakfast','lunch','tea','dinner','supper'];
+const MEAL_EMOJIS = {breakfast:'🌅',lunch:'☀️',tea:'🫖',dinner:'🌙',supper:'🦉'};
+const MEAL_CATS = {
+  breakfast:['soup','staple','dish'],
+  lunch:['soup','staple','dish','dessert'],
+  tea:['dessert','fruit','soup'],
+  dinner:['soup','staple','dish','dessert'],
+  supper:['soup','staple','dish']
+};
+const CAT_CONFIG = {
+  soup:{name:'汤品',icon:'🥣',color:'var(--cat-soup)'},
+  staple:{name:'主食',icon:'🍚',color:'var(--cat-staple)'},
+  dish:{name:'炒菜',icon:'🍳',color:'var(--cat-dish)'},
+  dessert:{name:'甜品',icon:'🍰',color:'var(--cat-dessert)'},
+  fruit:{name:'水果',icon:'🍎',color:'var(--cat-fruit)'}
+};
+
+// ========== State ==========
+const state = {
+  currentStep: 1,
+  currentMeal: 'lunch',
+  dinerCount: 1,
+  selectedIngredients: [],
+  dietaryRestrictions: [],
+  tempExcludeIngredients: [],
+  currentRecommendations: {},
+  categoryEnabled: {soup:true,staple:true,dish:true,dessert:true,fruit:true},
+  tasteHistory: [],
+  recommendCount: 0,
+  comfortZoneDish: null,
+  previousDinerCount: 1,
+  quantityPreference: {},
+  _initialRecCounts: {},
+  nutritionTargets: null
+};
+
+// ========== Utility ==========
+function $(s){return document.querySelector(s)}
+function $$(s){return document.querySelectorAll(s)}
+function showToast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+function saveState(){localStorage.setItem('fa_hist',JSON.stringify(state.tasteHistory));localStorage.setItem('fa_rest',JSON.stringify(state.dietaryRestrictions));localStorage.setItem('fa_rc',state.recommendCount);saveMealToggles();saveQuantityPreference();saveNutritionTargets()}
+function loadState(){try{state.tasteHistory=JSON.parse(localStorage.getItem('fa_hist'))||[];state.dietaryRestrictions=JSON.parse(localStorage.getItem('fa_rest'))||[];state.recommendCount=parseInt(localStorage.getItem('fa_rc'))||0;loadQuantityPreference();loadNutritionTargets()}catch(e){}}
+function loadNutritionTargets(){try{const t=JSON.parse(localStorage.getItem('fa_nutrition_targets'));if(t&&typeof t.protein==='number'&&typeof t.carbs==='number'&&typeof t.fat==='number'){state.nutritionTargets=t}else{state.nutritionTargets={protein:75,carbs:250,fat:60}}}catch(e){state.nutritionTargets={protein:75,carbs:250,fat:60}}}
+function saveNutritionTargets(){localStorage.setItem('fa_nutrition_targets',JSON.stringify(state.nutritionTargets))}
+function getDailyTargets(){return state.nutritionTargets||{protein:75,carbs:250,fat:60}}
+function getMealNutritionRatio(){const r={breakfast:0.25,lunch:0.35,tea:0.10,dinner:0.35,supper:0.15};return r[state.currentMeal]||0.30}
+function autoDetectMeal(){const h=new Date().getHours();if(h>=6&&h<=9)return'breakfast';if(h>=10&&h<=13)return'lunch';if(h>=14&&h<=16)return'tea';if(h>=17&&h<=21)return'dinner';return'supper'}
+function imgUrl(photoId){return'https://images.unsplash.com/'+photoId+'?w=400&h=300&fit=crop&q=80'}
+
+// ========== Dynamic Dish Count ==========
+function getDefaultDishCount(cat, people) {
+  switch(cat) {
+    case 'staple': return people <= 2 ? 1 : 2;
+    case 'soup':   return 1;
+    case 'dish':   return people === 1 ? 2 : people === 2 ? 2 : people === 3 ? 3 : 4;
+    case 'dessert':return people <= 2 ? 1 : 2;
+    case 'fruit':  return 1;
+    default:       return 2;
+  }
+}
+function getDishCount(cat, people) {
+  const pref = state.quantityPreference[cat];
+  if (pref && pref[people] !== undefined) return pref[people];
+  return getDefaultDishCount(cat, people);
+}
+function hasUserPreference(cat, people) {
+  const pref = state.quantityPreference[cat];
+  return pref && pref[people] !== undefined;
+}
+
+// ========== Quantity Preference Learning ==========
+function loadQuantityPreference(){try{state.quantityPreference=JSON.parse(localStorage.getItem('fa_quantity_preference'))||{}}catch(e){state.quantityPreference={}}}
+function saveQuantityPreference(){localStorage.setItem('fa_quantity_preference',JSON.stringify(state.quantityPreference))}
+function recordInitialRecommendation(cat,count){if(!state._initialRecCounts)state._initialRecCounts={};state._initialRecCounts[cat]=count}
+function learnFromCurrentRecommendations(){
+  const people=state.dinerCount;
+  Object.keys(state.currentRecommendations).forEach(cat=>{
+    const initial=state._initialRecCounts[cat];
+    const current=(state.currentRecommendations[cat]||[]).length;
+    if(initial!==undefined&&current<initial){
+      if(!state.quantityPreference[cat])state.quantityPreference[cat]={};
+      state.quantityPreference[cat][people]=current;
+      saveQuantityPreference();
+    }
+  });
+}
+
+// ========== Meal Toggles ==========
+function getMealToggles(){try{return JSON.parse(localStorage.getItem('fa_meal_toggles'))||{}}catch(e){return{}}}
+function saveMealToggles(){const toggles=getMealToggles();const meal=state.currentMeal;const cats=MEAL_CATS[meal]||[];toggles[meal]={};cats.forEach(c=>{toggles[meal][c]=state.categoryEnabled[c]});localStorage.setItem('fa_meal_toggles',JSON.stringify(toggles))}
+function loadMealToggles(meal){const toggles=getMealToggles();const cats=MEAL_CATS[meal]||[];state.categoryEnabled={soup:true,staple:true,dish:true,dessert:true,fruit:true};if(toggles[meal]){cats.forEach(c=>{if(toggles[meal][c]!==undefined)state.categoryEnabled[c]=toggles[meal][c]})}}
+function switchMeal(newMeal){saveMealToggles();state.currentMeal=newMeal;loadMealToggles(newMeal)}
+
+// ========== Step Navigation ==========
+function goToStep(step){
+  const prev=state.currentStep;const prevEl=$('#stepPage'+prev);const nextEl=$('#stepPage'+step);const fwd=step>prev;
+  prevEl.classList.remove('active','slide-in-right','slide-out-left','slide-in-left','slide-out-right');
+  nextEl.classList.remove('active','slide-in-right','slide-out-left','slide-in-left','slide-out-right');
+  if(fwd){prevEl.classList.add('slide-out-left');nextEl.classList.add('slide-in-right')}
+  else{prevEl.classList.add('slide-out-right');nextEl.classList.add('slide-in-left')}
+  setTimeout(()=>{prevEl.classList.remove('slide-out-left','slide-out-right');prevEl.style.display='none';nextEl.classList.remove('slide-in-right','slide-in-left');nextEl.style.display='';nextEl.classList.add('active');state.currentStep=step},400);
+  updateStepIndicator(step);
+  if(step===4){$('#stepIndicator').classList.add('hidden');runRecommendation()}else{$('#stepIndicator').classList.remove('hidden')}
+}
+function updateStepIndicator(step){$$('.step-dot').forEach(d=>{const s=parseInt(d.dataset.step);d.classList.toggle('active',s===step);d.classList.toggle('done',s<step)});for(let i=1;i<=3;i++){const l=$('#line'+i);l.classList.toggle('done',i<step)}}
+
+// ========== Step 1 ==========
+function initStep1(){state.currentMeal=autoDetectMeal();renderMealCards();renderStickFigures();updatePeopleDisplay();updateStep1Subtitle();$('#peoplePlus').addEventListener('click',()=>{if(state.dinerCount<12){state.dinerCount++;renderStickFigures(true);updatePeopleDisplay()}});$('#peopleMinus').addEventListener('click',()=>{if(state.dinerCount>1){state.dinerCount--;renderStickFigures(false);updatePeopleDisplay()}});$('#toStep2').addEventListener('click',()=>goToStep(2))}
+function renderMealCards(){const c=$('#mealCards');let h='';MEAL_ORDER.forEach(m=>{h+=`<div class="meal-card2 ${m===state.currentMeal?'active':''}" data-meal="${m}"><div class="mc-emoji">${MEAL_EMOJIS[m]}</div><div class="mc-name">${MEAL_NAMES[m]}</div></div>`});c.innerHTML=h;c.querySelectorAll('.meal-card2').forEach(card=>{card.addEventListener('click',()=>{switchMeal(card.dataset.meal);c.querySelectorAll('.meal-card2').forEach(x=>x.classList.remove('active'));card.classList.add('active');updateStep1Subtitle()})})}
+function updateStep1Subtitle(){$('#step1Subtitle').textContent=`现在是${MEAL_NAMES[state.currentMeal]}时间 ${MEAL_EMOJIS[state.currentMeal]}`}
+function renderStickFigures(adding){const c=$('#stickFigures');const count=state.dinerCount;const existing=c.querySelectorAll('.stick-figure').length;if(adding&&existing<count){const f=document.createElement('div');f.className='stick-figure walk-in';f.style.setProperty('--c',SF_COLORS[(count-1)%SF_COLORS.length]);f.classList.add('sf-colors','sf-bounce');f.style.animationDelay=(count*0.15)+'s';f.innerHTML='<div class="sf-head"></div><div class="sf-body"></div><div class="sf-arms"></div><div class="sf-legs"><div class="sf-leg"></div><div class="sf-leg"></div></div>';c.appendChild(f);setTimeout(()=>f.classList.remove('walk-in'),500)}else if(!adding&&existing>count){const figs=c.querySelectorAll('.stick-figure');const last=figs[figs.length-1];if(last){last.classList.remove('sf-bounce');last.classList.add('walk-out');setTimeout(()=>last.remove(),500)}}else{c.innerHTML='';for(let i=0;i<count;i++){const f=document.createElement('div');f.className='stick-figure sf-colors sf-bounce';f.style.setProperty('--c',SF_COLORS[i%SF_COLORS.length]);f.style.animationDelay=(i*0.15)+'s';f.innerHTML='<div class="sf-head"></div><div class="sf-body"></div><div class="sf-arms"></div><div class="sf-legs"><div class="sf-leg"></div><div class="sf-leg"></div></div>';c.appendChild(f)}}$('#peopleMinus').disabled=count<=1}
+function updatePeopleDisplay(){$('#peopleDisplay').textContent=state.dinerCount+'人用餐'}
+
+// ========== Step 2 ==========
+function initStep2(){$('#chooseCook').addEventListener('click',()=>goToStep(3));$('#chooseTakeout').addEventListener('click',()=>{$('#takeoutToast').classList.add('show')});$('#takeoutOk').addEventListener('click',()=>{$('#takeoutToast').classList.remove('show');goToStep(1)});$('#backTo1').addEventListener('click',()=>goToStep(1))}
+
+// ========== Step 3 ==========
+let hasIngredients=false;
+function initStep3(){renderIngredientGroups();$('#ingHasSome').addEventListener('click',()=>{hasIngredients=true;$('#ingHasSome').classList.add('active');$('#ingNone').classList.remove('active');$('#ingredientWall').classList.add('open')});$('#ingNone').addEventListener('click',()=>{hasIngredients=false;$('#ingNone').classList.add('active');$('#ingHasSome').classList.remove('active');$('#ingredientWall').classList.remove('open')});$('#ingredientSearch').addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase();$$('.ingredient-tag').forEach(t=>{t.classList.toggle('hidden',q&&!t.dataset.ing.toLowerCase().includes(q))})});$('#toStep4').addEventListener('click',()=>goToStep(4));$('#backTo2').addEventListener('click',()=>goToStep(2))}
+function renderIngredientGroups(){const c=$('#ingredientGroups');let h='';INGREDIENT_CATEGORIES.forEach(cat=>{h+=`<div class="ingredient-group"><div class="ingredient-group-title">${cat.name}</div><div class="ingredient-tags">`;cat.items.forEach(i=>{h+=`<span class="ingredient-tag" data-ing="${i}">${i}</span>`});h+='</div></div>'});c.innerHTML=h;c.addEventListener('click',e=>{const t=e.target.closest('.ingredient-tag');if(!t)return;const n=t.dataset.ing;if(state.selectedIngredients.includes(n)){state.selectedIngredients=state.selectedIngredients.filter(x=>x!==n);t.classList.remove('selected')}else{state.selectedIngredients.push(n);t.classList.add('selected')}})}
+
+// ========== Recommendation ==========
+function runRecommendation(){state.previousDinerCount=state.dinerCount;const recs=getRecommendations();state.currentRecommendations=recs;renderResults(recs);renderNutritionOverview(recs);state.recommendCount++;if(state.recommendCount%10===0){const cd=getComfortZone();if(cd){state.comfortZoneDish=cd;$('#comfortDishName').textContent=cd.name+' — 跳出舒适区';$('#comfortBanner').classList.add('show')}}saveState()}
+function getRecommendations(){
+  const meal=state.currentMeal;const people=state.dinerCount;const ing=state.selectedIngredients;const rest=state.dietaryRestrictions;
+  const cats=MEAL_CATS[meal]||[];state._initialRecCounts={};
+  const totalTargets=getNutritionTargets();
+  const mealRatio=getMealNutritionRatio();
+  const mealTargets={protein:totalTargets.protein*mealRatio,carbs:totalTargets.carbs*mealRatio,fat:totalTargets.fat*mealRatio};
+  const result={};
+  // Build nutrition context: gap = meal target (daily × ratio) for initial rec
+  const nutriCtx={isLow:true,gap:{protein:mealTargets.protein,carbs:mealTargets.carbs,fat:mealTargets.fat}};
+  cats.forEach(cat=>{if(!state.categoryEnabled[cat]){result[cat]=[];return}
+    const dishCount=(state._recCountOverride&&state._recCountOverride[cat])||getDishCount(cat,people);recordInitialRecommendation(cat,dishCount);
+    let pool;if(cat==='dish'){pool=DISHES.filter(d=>d.meals.includes(meal)&&(d.cat==='meat'||d.cat==='veg'))}else{pool=DISHES.filter(d=>d.meals.includes(meal)&&d.cat===cat)}
+    pool=pool.filter(d=>people>=d.people[0]&&people<=d.people[1]);pool=filterRestrictions(pool,rest);
+    // Filter by tempExcludeIngredients
+    if(state.tempExcludeIngredients.length>0){pool=pool.filter(d=>!d.ingredients.some(i=>state.tempExcludeIngredients.some(ei=>i.includes(ei)||ei.includes(i))))}
+    // Relaxed ingredient matching: full match +10, partial +5, no match +0
+    if(ing.length>0){
+      pool=pool.map(d=>{
+        const matchCount=d.ingredients.filter(i=>ing.some(si=>i.includes(si)||si.includes(i))).length;
+        let _match=0;
+        if(matchCount===d.ingredients.length)_match=10;       // full match
+        else if(matchCount>0)_match=5;                         // partial match
+        else _match=0;                                          // no match but same meal, still allowed
+        return{...d,_match,_matchCount:matchCount};
+      });
+      // Sort: full match > partial > none, then by match count for tie-breaking
+      pool.sort((a,b)=>b._match-a._match||b._matchCount-a._matchCount);
+    }
+    pool=sortTaste(pool,nutriCtx);
+    // Combine taste+nutrition scores with randomness for variety
+    pool.sort((a,b)=>{const aS=(a._ts||0)+(a._ns||0)+(a._match||0)*3+(Math.random()-.5)*2;const bS=(b._ts||0)+(b._ns||0)+(b._match||0)*3+(Math.random()-.5)*2;return bS-aS});
+    result[cat]=pool.slice(0,Math.min(dishCount,pool.length));
+  });return result}
+function filterRestrictions(dishes,rest){if(!rest||!rest.length)return dishes;return dishes.filter(d=>{for(const r of rest){if(r==='不吃辣'&&d.tags.includes('辣'))return false;if(r==='不吃海鲜'&&d.ingredients.some(i=>['鱼','虾','鱿鱼','小龙虾','大虾','鲫鱼','鲈鱼','草鱼','花蛤','鱼头','虾仁'].includes(i)))return false;if(r==='不吃牛羊肉'&&d.ingredients.some(i=>['牛肉','羊肉','牛腩'].includes(i)))return false;if(r==='不吃猪肉'&&d.ingredients.some(i=>['猪肉','五花肉','排骨','猪里脊','肉末','培根','香肠','猪肝'].includes(i)))return false;if(r==='不吃葱蒜'&&d.ingredients.some(i=>['葱','蒜','小葱','蒜苗'].includes(i)))return false;if(r==='不吃香菜'&&d.ingredients.includes('香菜'))return false;if(r==='不吃豆制品'&&d.ingredients.some(i=>['豆腐','豆皮','腐竹','豆干'].includes(i)))return false;if(r==='不吃乳制品'&&d.ingredients.some(i=>['牛奶','酸奶','芝士','奶油'].includes(i)))return false;if(r==='不吃鸡蛋'&&d.ingredients.some(i=>['鸡蛋','皮蛋','蛋清'].includes(i)))return false;if(!PRESET_RESTRICTIONS.includes(r)){const k=r.replace('不吃','');if(d.ingredients.some(i=>i.includes(k)||k.includes(i))||d.name.includes(k))return false}}return true})}
+function sortTaste(pool,nutriCtx){
+  const ts={};
+  if(state.tasteHistory.length)state.tasteHistory.forEach(h=>{h.tags.forEach(t=>{ts[t]=(ts[t]||0)+(h.action==='accept'?2:-1)})});
+  const dailyTargets=getDailyTargets();
+  const stdP=75,stdC=250,stdF=60;
+  const wP=dailyTargets.protein/stdP,wC=dailyTargets.carbs/stdC,wF=dailyTargets.fat/stdF;
+  const mealRatio=getMealNutritionRatio();
+  const mealTargets={protein:dailyTargets.protein*mealRatio*state.dinerCount,carbs:dailyTargets.carbs*mealRatio*state.dinerCount,fat:dailyTargets.fat*mealRatio*state.dinerCount};
+  const NW=20; // nutrition weight coefficient
+  return pool.map(d=>{
+    let _ts=0;
+    if(state.tasteHistory.length)_ts=d.tags.reduce((s,t)=>s+(ts[t]||0),0);
+    let _ns=0;
+    if(nutriCtx){
+      const ratio=state.dinerCount/(d.servings||2);
+      const dp=(d.protein||0)*ratio,dc=(d.carbs||0)*ratio,df=(d.fat||0)*ratio;
+      // Gap-fill reward (when still below target)
+      if(nutriCtx.isLow){
+        const g=nutriCtx.gap;
+        _ns+=((g.protein>0?dp/g.protein:0)*wP+(g.carbs>0?dc/g.carbs:0)*wC+(g.fat>0?df/g.fat:0)*wF)*NW;
+      }
+      // Mode-specific penalty/reward: nutrition preference >> random factor
+      // Low fat mode: penalize fat-heavy dishes
+      if(wF<0.7){
+        _ns-=(df/(mealTargets.fat||1))*NW*2;
+      }
+      // Low carb mode: penalize carb-heavy dishes
+      if(wC<0.5){
+        _ns-=(dc/(mealTargets.carbs||1))*NW*2;
+      }
+      // High protein mode: reward protein-heavy dishes
+      if(wP>1.5){
+        _ns+=(dp/(mealTargets.protein||1))*NW*2;
+      }
+      // Penalize any macro that overshoots its meal target heavily
+      const pOver=dp/(mealTargets.protein||1),cOver=dc/(mealTargets.carbs||1),fOver=df/(mealTargets.fat||1);
+      if(pOver>1)_ns-=(pOver-1)*NW;
+      if(cOver>1)_ns-=(cOver-1)*NW;
+      if(fOver>1)_ns-=(fOver-1)*NW;
+    }
+    return{...d,_ts,_ns};
+  }).sort((a,b)=>(b._ts+b._ns)-(a._ts+a._ns));
+}
+function shufflePick(arr,n){const s=[...arr].sort(()=>Math.random()-.5);return s.slice(0,Math.min(n,s.length))}
+function getComfortZone(){if(state.tasteHistory.length<3)return null;const ts={};state.tasteHistory.forEach(h=>{h.tags.forEach(t=>{ts[t]=(ts[t]||0)+1})});const meal=state.currentMeal;let pool=DISHES.filter(d=>d.meals.includes(meal));pool.sort((a,b)=>a.tags.reduce((s,t)=>s-(ts[t]||0),0)-b.tags.reduce((s,t)=>s-(ts[t]||0),0));return pool[0]||null}
+
+// ========== Render Results ==========
+function renderResults(recs){
+  const container=$('#recContent');const cats=MEAL_CATS[state.currentMeal]||[];const numCats=cats.filter(c=>state.categoryEnabled[c]).length;
+  const gridClass=numCats>=4?'cols-2':numCats===3?'cols-3':'cols-2';const people=state.dinerCount;
+  // Build shopping list first
+  let html=renderShoppingList(recs);
+  html+=`<div class="category-grid ${gridClass}">`;
+  cats.forEach(cat=>{
+    const cfg=CAT_CONFIG[cat];const enabled=state.categoryEnabled[cat];const dishes=recs[cat]||[];
+    const prefHint=enabled&&hasUserPreference(cat,people)?`<span style="font-size:.6rem;color:var(--primary);font-weight:400;margin-left:4px">根据习惯${getDishCount(cat,people)}道</span>`:'';
+    html+=`<div class="cat-card ${enabled?'':'disabled'}" data-cat="${cat}">`;
+    html+=`<div class="cat-card-head"><div class="cat-card-title"><span class="cat-icon">${cfg.icon}</span>${cfg.name}${prefHint}</div>`;
+    html+=`<button class="cat-toggle ${enabled?'on':'off'}" data-cat="${cat}">${enabled?'✓':'✕'}</button></div>`;
+    if(enabled&&dishes.length>0){
+      html+=`<div class="cat-card-body">`;
+      dishes.forEach((d,idx)=>{
+        const servingsLabel=people+'人份';
+        const ratio=people/(d.servings||2);
+        const adjCal=Math.round((d.cal||0)*ratio);const adjP=Math.round((d.protein||0)*ratio*10)/10;const adjC=Math.round((d.carbs||0)*ratio*10)/10;const adjF=Math.round((d.fat||0)*ratio*10)/10;
+        html+=`<div class="dish-item" data-id="${d.id}" data-cat="${cat}" data-idx="${idx}">`;
+        html+=`<button class="dish-delete" data-id="${d.id}" data-cat="${cat}" data-idx="${idx}" title="移除">✕</button>`;
+        html+=`<div class="dish-item-img" data-id="${d.id}"><img src="${imgUrl(d.img)}" alt="${d.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="img-fallback" style="background:${cfg.color}22;display:none;align-items:center;justify-content:center;height:100%;font-size:1.2rem;position:absolute;inset:0">${cfg.icon}</div></div>`;
+        html+=`<div class="dish-item-info"><div class="dish-item-name" data-id="${d.id}">${d.name}<span style="font-size:.68rem;color:var(--primary);font-weight:400;margin-left:4px">（${servingsLabel}）</span></div>`;
+        html+=`<div class="dish-item-meta"><span>⏱ ${d.cookTime||'?'}分钟</span><span>🔥 ${adjCal}kcal</span><span>🥩 蛋白${adjP}g · 碳水${adjC}g · 脂肪${adjF}g</span></div>`;
+        html+=`<div class="dish-item-tags">${d.tags.slice(0,3).map(t=>`<span class="dish-tag-s">${t}</span>`).join('')}</div></div></div>`;
+      });
+      html+=`</div>`;
+      html+=`<div class="cat-card-footer"><button class="refresh-cat-btn" data-cat="${cat}">🔄 换一批</button>${enabled?`<button class="add-dish-btn" data-cat="${cat}">➕ 加一道</button>`:''}</div>`;
+    } else if(enabled){
+      html+=`<div class="cat-card-body"><div style="text-align:center;padding:12px;color:var(--text-lighter);font-size:.82rem">暂无推荐</div></div>`;
+      html+=`<div class="cat-card-footer"><button class="refresh-cat-btn" data-cat="${cat}">🔄 换一批</button><button class="add-dish-btn" data-cat="${cat}">➕ 加一道</button></div>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="comfort-banner" id="comfortBanner2" style="display:none"><span class="ce">✨</span><div class="ct"><strong>今天来点不一样的？</strong><span id="comfortDish2"></span></div><button class="ca" id="comfortAccept2">试试</button><button class="cs" id="comfortSkip2">下次吧</button></div>`;
+  html+=`<div id="nutritionArea"></div>`;
+  container.innerHTML=html;bindResultEvents();
+  if(state.comfortZoneDish){$('#comfortBanner2').style.display='flex';$('#comfortDish2').textContent=state.comfortZoneDish.name}
+  renderNutritionOverview(recs);
+}
+function bindResultEvents(){
+  $$('.cat-toggle').forEach(btn=>{btn.addEventListener('click',e=>{e.stopPropagation();const cat=btn.dataset.cat;state.categoryEnabled[cat]=!state.categoryEnabled[cat];btn.className='cat-toggle '+(state.categoryEnabled[cat]?'on':'off');btn.textContent=state.categoryEnabled[cat]?'✓':'✕';btn.closest('.cat-card').classList.toggle('disabled',!state.categoryEnabled[cat]);saveMealToggles();if(state.categoryEnabled[cat]){refreshCat(cat)}else{state.currentRecommendations[cat]=[];const body=btn.closest('.cat-card').querySelector('.cat-card-body');if(body)body.innerHTML='<div style="text-align:center;padding:12px;color:var(--text-lighter);font-size:.82rem">已关闭推荐</div>'}renderNutritionOverview(state.currentRecommendations)})});
+  $$('.refresh-cat-btn').forEach(btn=>{btn.addEventListener('click',()=>refreshCat(btn.dataset.cat))});
+  $$('.add-dish-btn').forEach(btn=>{btn.addEventListener('click',()=>addOneDish(btn.dataset.cat))});
+  $$('.dish-item-img').forEach(img=>{img.addEventListener('click',()=>{const id=parseInt(img.dataset.id);const d=DISHES.find(x=>x.id===id);if(d)showRecipe(d)})});
+  $$('.dish-item-name').forEach(n=>{n.addEventListener('click',()=>{const id=parseInt(n.dataset.id);const d=DISHES.find(x=>x.id===id);if(d)showRecipe(d)})});
+  $$('.dish-delete').forEach(btn=>{btn.addEventListener('click',e=>{e.stopPropagation();const id=parseInt(btn.dataset.id);const cat=btn.dataset.cat;const idx=parseInt(btn.dataset.idx);removeDish(cat,idx,id)})});
+  $$('.dish-item').forEach(item=>{item.addEventListener('touchstart',()=>{item.querySelector('.dish-delete').classList.add('show')},{passive:true});item.addEventListener('touchend',()=>{setTimeout(()=>item.querySelector('.dish-delete')?.classList.remove('show'),1500)},{passive:true})});
+  const ca2=$('#comfortAccept2');const cs2=$('#comfortSkip2');
+  if(ca2)ca2.addEventListener('click',()=>{if(state.comfortZoneDish){const cat=getCatForDish(state.comfortZoneDish);if(cat&&state.currentRecommendations[cat])state.currentRecommendations[cat].push(state.comfortZoneDish);state.tasteHistory.push({dishId:state.comfortZoneDish.id,dishName:state.comfortZoneDish.name,tags:state.comfortZoneDish.tags,action:'accept',reason:'舒适区-接受',time:Date.now()});renderResults(state.currentRecommendations);showToast('已添加「'+state.comfortZoneDish.name+'」');saveState()}state.comfortZoneDish=null;$('#comfortBanner2').style.display='none'});
+  if(cs2)cs2.addEventListener('click',()=>{if(state.comfortZoneDish){state.tasteHistory.push({dishId:state.comfortZoneDish.id,dishName:state.comfortZoneDish.name,tags:state.comfortZoneDish.tags,action:'reject',reason:'舒适区-跳过',time:Date.now()});saveState()}state.comfortZoneDish=null;$('#comfortBanner2').style.display='none'});
+  // Shopping list ingredient X buttons
+  $$('.shop-tag-x').forEach(btn=>{btn.addEventListener('click',e=>{e.stopPropagation();const ing=btn.dataset.ing;if(ing)showIngActionModal(ing)})});
+}
+function getCatForDish(d){const cats=MEAL_CATS[state.currentMeal]||[];if(d.cat==='meat'||d.cat==='veg')return'dish';if(cats.includes(d.cat))return d.cat;return null}
+
+// ========== Add One Dish ==========
+function addOneDish(cat){
+  const meal=state.currentMeal;const people=state.dinerCount;
+  const totalTargets=getNutritionTargets();
+  const mealRatio=getMealNutritionRatio();
+  const mealTargets={protein:totalTargets.protein*mealRatio,carbs:totalTargets.carbs*mealRatio,fat:totalTargets.fat*mealRatio};
+  const curNutri=getCurrentNutrition();
+  const gap={protein:Math.max(0,mealTargets.protein-curNutri.protein),carbs:Math.max(0,mealTargets.carbs-curNutri.carbs),fat:Math.max(0,mealTargets.fat-curNutri.fat)};
+  const isLow=(curNutri.protein/mealTargets.protein<0.6)||(curNutri.carbs/mealTargets.carbs<0.6)||(curNutri.fat/mealTargets.fat<0.6);
+  const nutriCtx={isLow,gap};
+  let pool;if(cat==='dish')pool=DISHES.filter(d=>d.meals.includes(meal)&&(d.cat==='meat'||d.cat==='veg'));else pool=DISHES.filter(d=>d.meals.includes(meal)&&d.cat===cat);
+  pool=pool.filter(d=>people>=d.people[0]&&people<=d.people[1]);pool=filterRestrictions(pool,state.dietaryRestrictions);
+  const curIds=[];Object.values(state.currentRecommendations).forEach(a=>a.forEach(d=>curIds.push(d.id)));pool=pool.filter(d=>!curIds.includes(d.id));
+  if(state.tempExcludeIngredients.length>0){pool=pool.filter(d=>!d.ingredients.some(i=>state.tempExcludeIngredients.some(ei=>i.includes(ei)||ei.includes(i))))}
+  if(state.selectedIngredients.length>0){pool=pool.map(d=>{const matchCount=d.ingredients.filter(i=>state.selectedIngredients.some(si=>i.includes(si)||si.includes(i))).length;let _match=0;if(matchCount===d.ingredients.length)_match=10;else if(matchCount>0)_match=5;return{...d,_match,_matchCount:matchCount}});pool.sort((a,b)=>b._match-a._match||b._matchCount-a._matchCount)}
+  pool=sortTaste(pool,nutriCtx);
+  pool.sort((a,b)=>{const aS=(a._ts||0)+(a._ns||0)+(a._match||0)*2+(Math.random()-.5)*2;const bS=(b._ts||0)+(b._ns||0)+(b._match||0)*2+(Math.random()-.5)*2;return bS-aS});
+  const nd=pool[0];
+  if(nd){state.currentRecommendations[cat].push(nd);state.tasteHistory.push({dishId:nd.id,dishName:nd.name,tags:nd.tags,action:'accept',reason:'加一道',time:Date.now()});renderResults(state.currentRecommendations);showToast('已添加「'+nd.name+'」');saveState()}
+  else showToast(CAT_CONFIG[cat].name+'没有更多菜品了');
+}
+
+// ========== Refresh Category ==========
+function refreshCat(cat){
+  const meal=state.currentMeal;const people=state.dinerCount;
+  const dishCount=Math.max(getDishCount(cat,people),(state.currentRecommendations[cat]||[]).length);
+  const totalTargets=getNutritionTargets();
+  const mealRatio=getMealNutritionRatio();
+  const mealTargets={protein:totalTargets.protein*mealRatio,carbs:totalTargets.carbs*mealRatio,fat:totalTargets.fat*mealRatio};
+  // Calculate current nutrition from other categories (excluding this one)
+  let curP=0,curC=0,curF=0;
+  Object.keys(state.currentRecommendations).forEach(c=>{
+    if(c===cat)return;
+    (state.currentRecommendations[c]||[]).forEach(d=>{const ratio=people/(d.servings||2);curP+=(d.protein||0)*ratio;curC+=(d.carbs||0)*ratio;curF+=(d.fat||0)*ratio});
+  });
+  const gap={protein:Math.max(0,mealTargets.protein-curP),carbs:Math.max(0,mealTargets.carbs-curC),fat:Math.max(0,mealTargets.fat-curF)};
+  const isLow=(curP/mealTargets.protein<0.6)||(curC/mealTargets.carbs<0.6)||(curF/mealTargets.fat<0.6);
+  const nutriCtx={isLow,gap};
+  let pool;if(cat==='dish')pool=DISHES.filter(d=>d.meals.includes(meal)&&(d.cat==='meat'||d.cat==='veg'));else pool=DISHES.filter(d=>d.meals.includes(meal)&&d.cat===cat);
+  pool=pool.filter(d=>people>=d.people[0]&&people<=d.people[1]);pool=filterRestrictions(pool,state.dietaryRestrictions);
+  const curIds=(state.currentRecommendations[cat]||[]).map(d=>d.id);pool=pool.filter(d=>!curIds.includes(d.id));
+  if(state.tempExcludeIngredients.length>0){pool=pool.filter(d=>!d.ingredients.some(i=>state.tempExcludeIngredients.some(ei=>i.includes(ei)||ei.includes(i))))}
+  if(state.selectedIngredients.length>0){pool=pool.map(d=>{const matchCount=d.ingredients.filter(i=>state.selectedIngredients.some(si=>i.includes(si)||si.includes(i))).length;let _match=0;if(matchCount===d.ingredients.length)_match=10;else if(matchCount>0)_match=5;return{...d,_match,_matchCount:matchCount}});pool.sort((a,b)=>b._match-a._match||b._matchCount-a._matchCount)}
+  pool=sortTaste(pool,nutriCtx);
+  pool.sort((a,b)=>{const aS=(a._ts||0)+(a._ns||0)+(a._match||0)*2+(Math.random()-.5)*2;const bS=(b._ts||0)+(b._ns||0)+(b._match||0)*2+(Math.random()-.5)*2;return bS-aS});
+  const newDishes=pool.slice(0,Math.min(dishCount,pool.length));
+  if(newDishes.length>0){state.currentRecommendations[cat]=newDishes;recordInitialRecommendation(cat,newDishes.length);renderResults(state.currentRecommendations);showToast('已刷新'+CAT_CONFIG[cat].name)}else showToast(CAT_CONFIG[cat].name+'没有更多菜品了');
+}
+
+// ========== Remove Dish ==========
+function removeDish(cat,idx,id){
+  const dish=DISHES.find(d=>d.id===id);if(!dish)return;
+  state.tasteHistory.push({dishId:id,dishName:dish.name,tags:dish.tags,action:'reject',reason:'',time:Date.now()});
+  const opts=genFeedback(dish);showFeedback(dish,opts,cat,idx);
+}
+function genFeedback(dish){
+  const o=[];
+  if(dish.tags.includes('油腻'))o.push({text:'不想吃太油腻',tags:['油腻']});
+  if(dish.tags.includes('清淡'))o.push({text:'不想吃太清淡',tags:['清淡']});
+  if(dish.tags.includes('辣'))o.push({text:'不想吃辣的',tags:['辣']});
+  if(dish.tags.includes('慢炖'))o.push({text:'不想做太费时间的',tags:['慢炖']});
+  const mi=dish.ingredients[0];if(mi&&!['姜','蒜','葱','盐','酱油','醋'].includes(mi))o.push({text:'不想吃'+mi,tags:[],ingredient:mi});
+  o.push({text:'换个别的',tags:[]});
+  o.push({text:'不要了',tags:[],removeOnly:true});return o;
+}
+function showFeedback(dish,opts,cat,idx){
+  const m=$('#feedbackModal');const t=$('#feedbackTitle');const c=$('#feedbackOptions');
+  t.textContent='为什么不想吃「'+dish.name+'」？';
+  c.innerHTML=opts.map((o,i)=>`<div class="feedback-option" data-i="${i}">${o.text}</div>`).join('');
+  m.classList.add('show');
+  c.querySelectorAll('.feedback-option').forEach(el=>{el.addEventListener('click',()=>{const fb=opts[parseInt(el.dataset.i)];if(fb.removeOnly){directRemoveDish(cat,idx,dish);m.classList.remove('show')}else{applyFeedback(cat,idx,fb,dish);m.classList.remove('show')}})});
+  $('#feedbackSkip').onclick=()=>{applyFeedback(cat,idx,{text:'换个别的',tags:[]},dish);m.classList.remove('show')};
+  m.addEventListener('click',e=>{if(e.target===m){applyFeedback(cat,idx,{text:'换个别的',tags:[]},dish);m.classList.remove('show')}});
+}
+function directRemoveDish(cat,idx,dish){
+  // Remove without replacement - learn preference
+  if(state.tasteHistory.length>0){const last=state.tasteHistory[state.tasteHistory.length-1];if(last.dishId===dish.id)last.reason='不要了'}
+  state.currentRecommendations[cat].splice(idx,1);
+  learnFromCurrentRecommendations();
+  renderResults(state.currentRecommendations);showToast('已移除「'+dish.name+'」');saveState();
+}
+function applyFeedback(cat,idx,fb,removed){
+  if(state.tasteHistory.length>0){const last=state.tasteHistory[state.tasteHistory.length-1];if(last.dishId===removed.id)last.reason=fb.text}
+  const meal=state.currentMeal;const people=state.dinerCount;
+  const totalTargets=getNutritionTargets();
+  const mealRatio=getMealNutritionRatio();
+  const mealTargets={protein:totalTargets.protein*mealRatio,carbs:totalTargets.carbs*mealRatio,fat:totalTargets.fat*mealRatio};
+  let curP=0,curC=0,curF=0;
+  Object.keys(state.currentRecommendations).forEach(c=>{
+    (state.currentRecommendations[c]||[]).forEach((d,i)=>{
+      if(c===cat&&i===idx)return;
+      const ratio=people/(d.servings||2);curP+=(d.protein||0)*ratio;curC+=(d.carbs||0)*ratio;curF+=(d.fat||0)*ratio;
+    });
+  });
+  const gap={protein:Math.max(0,mealTargets.protein-curP),carbs:Math.max(0,mealTargets.carbs-curC),fat:Math.max(0,mealTargets.fat-curF)};
+  const isLow=(curP/mealTargets.protein<0.6)||(curC/mealTargets.carbs<0.6)||(curF/mealTargets.fat<0.6);
+  const nutriCtx={isLow,gap};
+  let pool;if(cat==='dish')pool=DISHES.filter(d=>d.meals.includes(meal)&&(d.cat==='meat'||d.cat==='veg')&&d.id!==removed.id);else pool=DISHES.filter(d=>d.meals.includes(meal)&&d.cat===cat&&d.id!==removed.id);
+  pool=filterRestrictions(pool,state.dietaryRestrictions);
+  const curIds=[];Object.values(state.currentRecommendations).forEach(a=>a.forEach(d=>curIds.push(d.id)));pool=pool.filter(d=>!curIds.includes(d.id));
+  if(state.tempExcludeIngredients.length>0){pool=pool.filter(d=>!d.ingredients.some(i=>state.tempExcludeIngredients.some(ei=>i.includes(ei)||ei.includes(i))))}
+  if(fb.tags&&fb.tags.length)pool=pool.filter(d=>!d.tags.some(t=>fb.tags.includes(t)));
+  if(fb.ingredient)pool=pool.filter(d=>!d.ingredients.includes(fb.ingredient));
+  pool=sortTaste(pool,nutriCtx);
+  pool.sort((a,b)=>{const aS=(a._ts||0)+(a._ns||0)+(Math.random()-.5)*2;const bS=(b._ts||0)+(b._ns||0)+(Math.random()-.5)*2;return bS-aS});
+  const nd=pool[0];
+  if(nd){state.currentRecommendations[cat][idx]=nd;state.tasteHistory.push({dishId:nd.id,dishName:nd.name,tags:nd.tags,action:'accept',reason:fb.text,time:Date.now()});renderResults(state.currentRecommendations);showToast('已换为「'+nd.name+'」')}
+  else{state.currentRecommendations[cat].splice(idx,1);learnFromCurrentRecommendations();renderResults(state.currentRecommendations);showToast('没有更合适的了，已移除')}
+  saveState();
+}
+
+// ========== Recipe Modal ==========
+function showRecipe(dish){
+  const m=$('#recipeModal');const s=$('#recipeSheet');const catKey=(dish.cat==='meat'||dish.cat==='veg')?'dish':dish.cat;const cfg=CAT_CONFIG[catKey]||CAT_CONFIG.dish;const people=state.dinerCount;const baseS=dish.servings||2;const ratio=people/baseS;
+  const adjCal=Math.round(dish.cal*ratio);const adjP=Math.round(dish.protein*ratio*10)/10;const adjC=Math.round(dish.carbs*ratio*10)/10;const adjF=Math.round(dish.fat*ratio*10)/10;
+  // Build ingredient scaling info
+  let servingsInfo=`<div style="margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--bg-warm);font-size:.8rem;color:var(--text)">`;
+  servingsInfo+=`<strong>份量参考：</strong>标准${baseS}人份 → 当前${people}人份（${people<=baseS?'1':'约'+ratio.toFixed(1)}倍量）`;
+  if(people!==baseS){servingsInfo+=`<br><span style="color:var(--primary)">食材用量按比例调整即可</span>`}
+  servingsInfo+=`</div>`;
+  s.innerHTML=`
+    <button class="recipe-close" id="rcClose">✕</button>
+    <div class="recipe-img-area"><img src="${imgUrl(dish.img)}" alt="${dish.name}" style="width:100%;max-height:180px;object-fit:cover;border-radius:14px" onerror="this.style.display='none'"></div>
+    <div class="recipe-title">${dish.name}</div>
+    <div class="recipe-desc">${dish.desc}</div>
+    <div class="recipe-nutrition">
+      <span class="rn-chip rn-time">⏱ ${dish.cookTime||'?'}分钟</span>
+      <span class="rn-chip rn-cal">🔥 ${adjCal}kcal/${people}人份</span>
+      <span class="rn-chip rn-pro">🥩 蛋白${adjP}g</span>
+      <span class="rn-chip rn-carb">🌾 碳水${adjC}g</span>
+      <span class="rn-chip rn-fat">🧈 脂肪${adjF}g</span>
+    </div>
+    <div class="recipe-ingredients"><h4>🥘 所需食材</h4><div class="tags">${dish.ingredients.map(i=>`<span>${i}</span>`).join('')}</div>${servingsInfo}</div>
+    <div class="recipe-steps"><h4>👨‍🍳 做法简述</h4><p>${dish.steps}</p></div>`;
+  m.classList.add('show');s.querySelector('#rcClose').addEventListener('click',()=>m.classList.remove('show'));m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')});
+}
+
+// ========== Nutrition Overview ==========
+function getNutritionTargets(){
+  const t=getDailyTargets();const people=state.dinerCount;
+  return{protein:t.protein*people,carbs:t.carbs*people,fat:t.fat*people};
+}
+function getCurrentNutrition(){
+  let tp=0,tc=0,tf=0;const people=state.dinerCount;
+  Object.values(state.currentRecommendations).forEach(arr=>arr.forEach(d=>{const ratio=people/(d.servings||2);tp+=(d.protein||0)*ratio;tc+=(d.carbs||0)*ratio;tf+=(d.fat||0)*ratio}));
+  return{protein:Math.round(tp),carbs:Math.round(tc),fat:Math.round(tf)};
+}
+function renderNutritionOverview(recs){
+  const area=$('#nutritionArea');if(!area)return;
+  let tp=0,tc=0,tf=0;const people=state.dinerCount;
+  Object.values(recs).forEach(arr=>arr.forEach(d=>{const ratio=people/(d.servings||2);tp+=Math.round((d.protein||0)*ratio*10)/10;tc+=Math.round((d.carbs||0)*ratio*10)/10;tf+=Math.round((d.fat||0)*ratio*10)/10}));
+  tp=Math.round(tp);tc=Math.round(tc);tf=Math.round(tf);
+  const targets=getNutritionTargets();
+  const daily=getDailyTargets();
+  const mealRatio=getMealNutritionRatio();
+  const mealLinePct=Math.round(mealRatio*100);
+  const mealName=MEAL_NAMES[state.currentMeal]||'本餐';
+  const mealTargets={protein:Math.round(targets.protein*mealRatio),carbs:Math.round(targets.carbs*mealRatio),fat:Math.round(targets.fat*mealRatio)};
+  // Meal bar: actual / meal target
+  const pMealPct=Math.round(tp/mealTargets.protein*100),cMealPct=Math.round(tc/mealTargets.carbs*100),fMealPct=Math.round(tf/mealTargets.fat*100);
+  // Daily bar: actual / daily target
+  const pDailyPct=Math.round(tp/targets.protein*100),cDailyPct=Math.round(tc/targets.carbs*100),fDailyPct=Math.round(tf/targets.fat*100);
+  const overallPct=Math.round((tp+tc+tf)/(targets.protein+targets.carbs+targets.fat)*100);
+  function barColor(pct){if(pct>100)return'linear-gradient(90deg,#E84233,#EF5350)';if(pct>=75)return'linear-gradient(90deg,#4CAF50,#66BB6A)';return'linear-gradient(90deg,#FF9800,#FFB74D)'}
+  function mealStatusClass(actual,mealTarget,dailyTarget){if(actual>dailyTarget)return'nutri-meal-over';if(actual>=mealTarget)return'nutri-meal-ok';return'nutri-meal-low'}
+  function barWidth(pct){return Math.min(pct,100)+'%'}
+  function mealGoalLine(pct){return`<div class="nutri-meal-line" style="left:${Math.min(pct,100)}%"></div><span class="nutri-meal-label" style="left:${Math.min(pct,100)}%">本餐建议</span>`}
+  // Build dual-bar row for each nutrient
+  function dualBarRow(cls,label,actual,mTarget,dTarget,mPct,dPct){
+    const mW=barWidth(mPct),dW=barWidth(dPct);
+    const goalPct=100; // meal goal line is at 100% of meal bar
+    return`<div class="nutri-row ${cls}"><span class="nutri-label">${label}</span><div class="nutri-bars">`+
+    `<div class="nutri-bar-line"><span class="nutri-bar-hint">本餐</span><div class="nutri-bar-bg"><div class="nutri-bar-fill" style="width:${mW};background:${barColor(mPct)}"></div>${mealGoalLine(goalPct)}</div></div>`+
+    `<div class="nutri-bar-line"><span class="nutri-bar-hint">每日</span><div class="nutri-bar-bg"><div class="nutri-bar-fill nutri-bar-daily-fill" style="width:${dW}"></div></div></div>`+
+    `</div><span class="nutri-val"><span class="nutri-val-meal ${mealStatusClass(actual,mTarget,dTarget)}">本餐 ${actual}g / ${mTarget}g</span><span class="nutri-val-daily">今日 ${actual}g / ${dTarget}g</span></span></div>`;
+  }
+  const isPanelOpen=area.querySelector('.nutrition-adjust-panel.open')!==null;
+  let activePreset='';
+  for(let i=0;i<NUTRITION_PRESETS.length;i++){if(NUTRITION_PRESETS[i].protein===daily.protein&&NUTRITION_PRESETS[i].carbs===daily.carbs&&NUTRITION_PRESETS[i].fat===daily.fat){activePreset=NUTRITION_PRESETS[i].id;break}}
+  area.innerHTML=`<div class="nutrition-bar"><div class="nutrition-title">📊 本餐营养 · 已达每日推荐 ${overallPct}%</div>
+    ${dualBarRow('nutri-protein','蛋白质',tp,mealTargets.protein,targets.protein,pMealPct,pDailyPct)}
+    ${dualBarRow('nutri-carbs','碳水',tc,mealTargets.carbs,targets.carbs,cMealPct,cDailyPct)}
+    ${dualBarRow('nutri-fat','脂肪',tf,mealTargets.fat,targets.fat,fMealPct,fDailyPct)}
+    <div style="font-size:.68rem;color:var(--text-light);margin-top:2px;text-align:center">本餐建议占每日 ${mealLinePct}%（${mealName}）</div>
+    <button class="nutrition-adjust-btn" id="btnNutriAdjust">${isPanelOpen?'🔼 收起':'⚙️ 调整营养目标'}</button>
+    <div class="nutrition-adjust-panel ${isPanelOpen?'open':''}" id="nutriAdjustPanel">
+      <div class="nap-title">选择营养模式</div>
+      <div class="nap-presets">${NUTRITION_PRESETS.map(p=>`<button class="nap-preset ${activePreset===p.id?'active':''}" data-preset="${p.id}">${p.name}</button>`).join('')}</div>
+      <div class="nap-title" style="margin-top:4px">手动调节</div>
+      <div class="nap-slider-group"><div class="nap-slider-label"><span>蛋白质</span><span id="napProteinVal">${daily.protein}g</span></div><input type="range" class="nap-slider" id="napProteinSlider" min="30" max="200" value="${daily.protein}"></div>
+      <div class="nap-slider-group"><div class="nap-slider-label"><span>碳水</span><span id="napCarbsVal">${daily.carbs}g</span></div><input type="range" class="nap-slider" id="napCarbsSlider" min="20" max="400" value="${daily.carbs}"></div>
+      <div class="nap-slider-group"><div class="nap-slider-label"><span>脂肪</span><span id="napFatVal">${daily.fat}g</span></div><input type="range" class="nap-slider" id="napFatSlider" min="15" max="120" value="${daily.fat}"></div>
+    </div></div>`;
+  bindNutriAdjustEvents();
+}
+function bindNutriAdjustEvents(){
+  const btn=$('#btnNutriAdjust');
+  if(btn)btn.addEventListener('click',()=>{
+    const panel=$('#nutriAdjustPanel');
+    if(panel)panel.classList.toggle('open');
+    btn.textContent=panel.classList.contains('open')?'🔼 收起':'⚙️ 调整营养目标';
+  });
+  $$('.nap-preset').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const preset=NUTRITION_PRESETS.find(p=>p.id===btn.dataset.preset);
+      if(preset){
+        state.nutritionTargets={protein:preset.protein,carbs:preset.carbs,fat:preset.fat};
+        saveNutritionTargets();
+        syncNapSliders();
+        $$('.nap-preset').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderNutritionOverview(state.currentRecommendations);
+      }
+    });
+  });
+  const pSlider=$('#napProteinSlider');const cSlider=$('#napCarbsSlider');const fSlider=$('#napFatSlider');
+  if(pSlider)pSlider.addEventListener('input',()=>{state.nutritionTargets.protein=parseInt(pSlider.value);$('#napProteinVal').textContent=pSlider.value+'g';saveNutritionTargets();updateNapPresetHighlight();renderNutritionOverview(state.currentRecommendations)});
+  if(cSlider)cSlider.addEventListener('input',()=>{state.nutritionTargets.carbs=parseInt(cSlider.value);$('#napCarbsVal').textContent=cSlider.value+'g';saveNutritionTargets();updateNapPresetHighlight();renderNutritionOverview(state.currentRecommendations)});
+  if(fSlider)fSlider.addEventListener('input',()=>{state.nutritionTargets.fat=parseInt(fSlider.value);$('#napFatVal').textContent=fSlider.value+'g';saveNutritionTargets();updateNapPresetHighlight();renderNutritionOverview(state.currentRecommendations)});
+}
+function syncNapSliders(){
+  const t=getDailyTargets();
+  const pSlider=$('#napProteinSlider');if(pSlider){pSlider.value=t.protein;$('#napProteinVal').textContent=t.protein+'g'}
+  const cSlider=$('#napCarbsSlider');if(cSlider){cSlider.value=t.carbs;$('#napCarbsVal').textContent=t.carbs+'g'}
+  const fSlider=$('#napFatSlider');if(fSlider){fSlider.value=t.fat;$('#napFatVal').textContent=t.fat+'g'}
+}
+function updateNapPresetHighlight(){
+  const t=getDailyTargets();
+  $$('.nap-preset').forEach(btn=>{
+    const p=NUTRITION_PRESETS.find(p=>p.id===btn.dataset.preset);
+    if(p)btn.classList.toggle('active',p.protein===t.protein&&p.carbs===t.carbs&&p.fat===t.fat);
+  });
+}
+
+// ========== Sidebar ==========
+function initSidebar(){$('#btnSidebar').addEventListener('click',openSidebar);$('#sidebarClose').addEventListener('click',closeSidebar);$('#sidebarOverlay').addEventListener('click',closeSidebar);$('#sbPeoplePlus').addEventListener('click',()=>{if(state.dinerCount<12){state.dinerCount++;updateSidebar();checkDinerChange()}});$('#sbPeopleMinus').addEventListener('click',()=>{if(state.dinerCount>1){state.dinerCount--;updateSidebar();checkDinerChange()}})}
+function openSidebar(){renderSidebarMeals();updateSidebar();$('#sidebarOverlay').classList.add('show');$('#sidebar').classList.add('show');$('#sbHint').classList.remove('show')}
+function closeSidebar(){$('#sidebarOverlay').classList.remove('show');$('#sidebar').classList.remove('show')}
+function renderSidebarMeals(){const c=$('#sbMealCards');let h='';MEAL_ORDER.forEach(m=>{h+=`<div class="sb-meal ${m===state.currentMeal?'active':''}" data-meal="${m}">${MEAL_EMOJIS[m]} ${MEAL_NAMES[m]}</div>`});c.innerHTML=h;c.querySelectorAll('.sb-meal').forEach(el=>{el.addEventListener('click',()=>{switchMeal(el.dataset.meal);c.querySelectorAll('.sb-meal').forEach(x=>x.classList.remove('active'));el.classList.add('active');runRecommendation();closeSidebar()})})}
+function updateSidebar(){$('#sbPeopleVal').textContent=state.dinerCount+'人'}
+function checkDinerChange(){const prev=state.previousDinerCount;const cur=state.dinerCount;if(prev!==cur){const totalDishes=Object.values(state.currentRecommendations).reduce((s,a)=>s+a.length,0);const cats=MEAL_CATS[state.currentMeal]||[];let expected=0;cats.forEach(c=>{if(state.categoryEnabled[c])expected+=getDishCount(c,cur)});let msg=`${cur}人用餐建议${expected}道菜，当前已有${totalDishes}道`;if(totalDishes<expected)msg+='，可能需要加几道';else if(totalDishes>expected+2)msg+='，可能需要减几道';const hint=$('#sbHint');hint.textContent=msg;hint.classList.add('show');hint.innerHTML=msg+`<div class="sb-hint-actions"><button class="sb-hint-btn primary" id="sbSupplement">重新推荐</button><button class="sb-hint-btn secondary" id="sbKeep">保持现状</button></div>`;$('#sbSupplement').addEventListener('click',()=>{state.previousDinerCount=cur;runRecommendation();closeSidebar();showToast('已重新推荐')});$('#sbKeep').addEventListener('click',()=>{state.previousDinerCount=cur;closeSidebar();showToast('保持当前推荐')})}}
+
+// ========== Restrictions ==========
+function initRestrictions(){const m=$('#restrictModal');const c=$('#restrictTags');function render(){c.innerHTML=PRESET_RESTRICTIONS.map(r=>`<span class="restrict-tag ${state.dietaryRestrictions.includes(r)?'active':''}" data-r="${r}">${r}</span>`).join('')+state.dietaryRestrictions.filter(r=>!PRESET_RESTRICTIONS.includes(r)).map(r=>`<span class="restrict-tag active" data-r="${r}">${r} ✕</span>`).join('');c.querySelectorAll('.restrict-tag').forEach(t=>{t.addEventListener('click',()=>{const r=t.dataset.r;if(PRESET_RESTRICTIONS.includes(r)){state.dietaryRestrictions=state.dietaryRestrictions.includes(r)?state.dietaryRestrictions.filter(x=>x!==r):[...state.dietaryRestrictions,r]}else{state.dietaryRestrictions=state.dietaryRestrictions.filter(x=>x!==r)}render();saveState()})})}render();$('#btnRestrictions').addEventListener('click',()=>{render();m.classList.add('show')});$('#restrictClose').addEventListener('click',()=>m.classList.remove('show'));m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')});$('#restrictCustomAdd').addEventListener('click',()=>{const v=$('#restrictCustomInput').value.trim();if(v&&!state.dietaryRestrictions.includes(v)){state.dietaryRestrictions.push(v);$('#restrictCustomInput').value='';render();saveState()}})}
+
+// ========== Shopping List ==========
+function renderShoppingList(recs){
+  const ingMap={};
+  const people=state.dinerCount;
+  // Collect all ingredients from recommended dishes
+  Object.values(recs).forEach(arr=>arr.forEach(d=>{
+    (d.ingredients||[]).forEach(i=>{
+      if(!ingMap[i])ingMap[i]=0;
+      ingMap[i]++;
+    });
+  }));
+  const entries=Object.entries(ingMap).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0)return '';
+  let html=`<div class="shopping-list"><div class="shopping-title">🛒 食材采购清单</div><div class="shopping-tags">`;
+  entries.forEach(([name,count])=>{
+    const countLabel=count>1?`<span class="shop-count">×${count}</span>`:'';
+    html+=`<span class="shop-tag" data-ing="${name}">${name}${countLabel}<button class="shop-tag-x" data-ing="${name}" title="操作">✕</button></span>`;
+  });
+  html+=`</div></div>`;
+  return html;
+}
+
+// ========== Ingredient Action Modal ==========
+function showIngActionModal(ingredient){
+  const m=$('#ingActionModal');
+  const t=$('#ingActionTitle');
+  const c=$('#ingActionOptions');
+  t.textContent=`对「${ingredient}」的操作`;
+  c.innerHTML=`
+    <div class="ing-action-option" data-action="temp">😔 今天不太想吃${ingredient}</div>
+    <div class="ing-action-option danger" data-action="permanent">🚫 不能吃${ingredient}</div>
+  `;
+  m.classList.add('show');
+  c.querySelectorAll('.ing-action-option').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const action=el.dataset.action;
+      if(action==='temp'){
+        // Add to temp exclude list
+        if(!state.tempExcludeIngredients.includes(ingredient)){
+          state.tempExcludeIngredients.push(ingredient);
+        }
+        // Remove dishes containing this ingredient from current recommendations
+        removeIngredientFromRecs(ingredient);
+        showToast(`已排除含「${ingredient}」的菜品，本次不再推荐`);
+      }else if(action==='permanent'){
+        // Add to dietary restrictions
+        const restrictItem='不吃'+ingredient;
+        if(!state.dietaryRestrictions.includes(restrictItem)){
+          state.dietaryRestrictions.push(restrictItem);
+          saveState();
+        }
+        // Remove dishes containing this ingredient from current recommendations
+        removeIngredientFromRecs(ingredient);
+        showToast(`已添加「${restrictItem}」到忌口，以后不再推荐含${ingredient}的菜品`);
+      }
+      m.classList.remove('show');
+      renderResults(state.currentRecommendations);
+      renderNutritionOverview(state.currentRecommendations);
+    });
+  });
+  $('#ingActionCancel').onclick=()=>m.classList.remove('show');
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')});
+}
+
+function removeIngredientFromRecs(ingredient){
+  // Remove dishes containing the ingredient from current recommendations
+  Object.keys(state.currentRecommendations).forEach(cat=>{
+    state.currentRecommendations[cat]=state.currentRecommendations[cat].filter(d=>!d.ingredients.some(i=>i.includes(ingredient)||ingredient.includes(i)));
+  });
+  // Re-fill removed dishes
+  const cats=MEAL_CATS[state.currentMeal]||[];
+  cats.forEach(cat=>{
+    if(!state.categoryEnabled[cat])return;
+    const desired=getDishCount(cat,state.dinerCount);
+    const current=(state.currentRecommendations[cat]||[]).length;
+    if(current<desired){
+      // Add dishes to fill the gap
+      const meal=state.currentMeal;const people=state.dinerCount;
+      let pool;if(cat==='dish')pool=DISHES.filter(d=>d.meals.includes(meal)&&(d.cat==='meat'||d.cat==='veg'));else pool=DISHES.filter(d=>d.meals.includes(meal)&&d.cat===cat);
+      pool=pool.filter(d=>people>=d.people[0]&&people<=d.people[1]);
+      pool=filterRestrictions(pool,state.dietaryRestrictions);
+      if(state.tempExcludeIngredients.length>0){pool=pool.filter(d=>!d.ingredients.some(i=>state.tempExcludeIngredients.some(ei=>i.includes(ei)||ei.includes(i))))}
+      const curIds=[];Object.values(state.currentRecommendations).forEach(a=>a.forEach(d=>curIds.push(d.id)));
+      pool=pool.filter(d=>!curIds.includes(d.id));
+      if(state.selectedIngredients.length>0){pool=pool.map(d=>{const mc=d.ingredients.filter(i=>state.selectedIngredients.some(si=>i.includes(si)||si.includes(i))).length;let _match=0;if(mc===d.ingredients.length)_match=10;else if(mc>0)_match=5;return{...d,_match,_matchCount:mc}});pool.sort((a,b)=>b._match-a._match||b._matchCount-a._matchCount)}
+      pool=sortTaste(pool,{isLow:true,gap:{protein:0,carbs:0,fat:0}});
+      pool.sort((a,b)=>{const aS=(a._ts||0)+(a._ns||0)+(a._match||0)*2+(Math.random()-.5)*2;const bS=(b._ts||0)+(b._ns||0)+(b._match||0)*2+(Math.random()-.5)*2;return bS-aS});
+      const needed=desired-current;
+      const newDishes=pool.slice(0,needed);
+      if(!state.currentRecommendations[cat])state.currentRecommendations[cat]=[];
+      state.currentRecommendations[cat].push(...newDishes);
+    }
+  });
+}
+
+// ========== Refresh All ==========
+function refreshAllCats(){state.tempExcludeIngredients=[];const meal=state.currentMeal;const people=state.dinerCount;const cats=MEAL_CATS[meal]||[];cats.forEach(cat=>{if(!state.categoryEnabled[cat])return;const overrideCount=Math.max(getDishCount(cat,people),(state.currentRecommendations[cat]||[]).length);state._recCountOverride=state._recCountOverride||{};state._recCountOverride[cat]=overrideCount});const recs=getRecommendations();delete state._recCountOverride;state.currentRecommendations=recs;renderResults(recs);showToast('已换一批推荐')}
+
+// ========== Service Worker ==========
+function registerSW(){if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}}
+
+// ========== Init ==========
+function init(){loadState();loadMealToggles(state.currentMeal);initStep1();initStep2();initStep3();initSidebar();initRestrictions();registerSW();$('#btnRefreshAll').addEventListener('click',refreshAllCats)}
+document.addEventListener('DOMContentLoaded',init);
+
+</script>
+</body>
+</html>
